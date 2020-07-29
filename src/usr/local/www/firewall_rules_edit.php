@@ -3,7 +3,7 @@
  * firewall_rules_edit.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -402,6 +402,10 @@ if ($_POST['save']) {
 		}
 	}
 
+	if (strpos($_POST['descr'], "\\") !== false) {
+		$input_errors[] = gettext("The '\' character is not allowed in the Description field.");
+	}
+
 	if (($_POST['proto'] != "tcp") && ($_POST['proto'] != "udp") && ($_POST['proto'] != "tcp/udp")) {
 		$_POST['srcbeginport'] = 0;
 		$_POST['srcendport'] = 0;
@@ -513,6 +517,11 @@ if ($_POST['save']) {
 	}
 
 	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
+
+	if ((isset($_POST['srcnot']) && ($_POST['srctype'] == 'any')) ||
+	    (isset($_POST['dstnot']) && ($_POST['dsttype'] == 'any'))) {
+		$input_errors[] = gettext("Invert match cannot be selected with 'any'.");
+	}
 
 	if (!$_POST['srcbeginport']) {
 		$_POST['srcbeginport'] = 0;
@@ -1365,7 +1374,7 @@ foreach (['src' => gettext('Source'), 'dst' => gettext('Destination')] as $type 
 	$group->add(new Form_Checkbox(
 		$type .'not',
 		$name .' not',
-		'Invert match.',
+		'Invert match',
 		$pconfig[$type.'not']
 	))->setWidth(2);
 

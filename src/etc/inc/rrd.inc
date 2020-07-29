@@ -4,7 +4,7 @@
  *
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2010 Seth Mos <seth.mos@dds.nl>
- * Copyright (c) 2010-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2010-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -415,7 +415,7 @@ function enable_rrd_graphing() {
 						$factor = 1;
 						break;
 				}
-				$qbandwidth = $altq->GetBandwidth() * $factor;
+				$qbandwidth = (int) $altq->GetBandwidth() * $factor;
 				if ($qbandwidth <= 0) {
 					$qbandwidth = 100 * 1000 * 1000; /* 100Mbit */
 				}

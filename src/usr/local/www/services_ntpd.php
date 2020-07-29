@@ -3,7 +3,7 @@
  * services_ntpd.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2013 Dagorlad
  * All rights reserved.
  *
@@ -41,7 +41,7 @@ if (empty($config['ntpd']['interface'])) {
 	    is_array($config['installedpackages']['openntpd']['config'][0]) && !empty($config['installedpackages']['openntpd']['config'][0]['interface'])) {
 		$pconfig['interface'] = explode(",", $config['installedpackages']['openntpd']['config'][0]['interface']);
 		unset($config['installedpackages']['openntpd']);
-		write_config(gettext("Upgraded settings from openttpd"));
+		write_config(gettext("Upgraded settings from openntpd"));
 	} else {
 		$pconfig['interface'] = array();
 	}
@@ -163,6 +163,8 @@ function build_interface_list() {
 	$iflist = array('options' => array(), 'selected' => array());
 
 	$interfaces = get_configured_interface_with_descr();
+	$interfaces['lo0'] = "Localhost";
+
 	foreach ($interfaces as $iface => $ifacename) {
 		if (!is_ipaddr(get_interface_ip($iface)) &&
 		    !is_ipaddrv6(get_interface_ipv6($iface))) {

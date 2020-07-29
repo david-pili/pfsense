@@ -3,7 +3,7 @@
  * services_unbound_acls.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2014 Warren Baker (warren@pfsense.org)
  * All rights reserved.
  *
@@ -120,7 +120,7 @@ if ($_POST['save']) {
 	}
 
 	if (!$input_errors) {
-		if (strtolower($pconfig['save']) == strtolower(gettext("save"))) {
+		if (strtolower($pconfig['save']) == strtolower(gettext("Save"))) {
 			$acl_entry = array();
 			$acl_entry['aclid'] = $pconfig['aclid'];
 			$acl_entry['aclname'] = $pconfig['aclname'];

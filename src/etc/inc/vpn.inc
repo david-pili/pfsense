@@ -3,7 +3,7 @@
  * vpn.inc
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2008 Shrew Soft Inc
  * All rights reserved.
  *
@@ -1245,7 +1245,7 @@ EOD;
 					} elseif ($ph2ent['mode'] == 'vti') {
 						$tunneltype = "";
 						$installpolicy = "installpolicy = no";
-						$passive = 'start';
+						$passive = isset($ph1ent['responderonly']) ? 'add' : 'start';
 
 						$localid_type = $ph2ent['localid']['type'];
 						$leftsubnet_data = ipsec_idinfo_to_cidr($ph2ent['localid'], false, $ph2ent['mode']);
@@ -1302,7 +1302,9 @@ EOD;
 													if (!empty($modp)) {
 														$tmpealgo .= "-{$modp}";
 													}
-													$ealgoESPsp2arr[] = $tmpealgo;
+													if (!in_array($tmpealgo, $ealgoESPsp2arr)) {
+														$ealgoESPsp2arr[] = $tmpealgo;
+													}
 												}
 											} else {
 												$tmpealgo = "{$ealg_id}{$keylen}";
@@ -1310,7 +1312,9 @@ EOD;
 												if (!empty($modp)) {
 													$tmpealgo .= "-{$modp}";
 												}
-												$ealgoESPsp2arr[] = $tmpealgo;
+												if (!in_array($tmpealgo, $ealgoESPsp2arr)) {
+													$ealgoESPsp2arr[] = $tmpealgo;
+												}
 											}
 										}
 									}
@@ -1323,7 +1327,9 @@ EOD;
 											if (!empty($modp)) {
 												$tmpealgo .= "-{$modp}";
 											}
-											$ealgoESPsp2arr[] = $tmpealgo;
+											if (!in_array($tmpealgo, $ealgoESPsp2arr)) {
+												$ealgoESPsp2arr[] = $tmpealgo;
+											}
 										}
 									} else {
 										$tmpealgo = "{$ealg_id}{$ealg_kl}";
@@ -1331,7 +1337,9 @@ EOD;
 										if (!empty($modp)) {
 											$tmpealgo .= "-{$modp}";
 										}
-										$ealgoESPsp2arr[] = $tmpealgo;
+										if (!in_array($tmpealgo, $ealgoESPsp2arr)) {
+											$ealgoESPsp2arr[] = $tmpealgo;
+										}
 									}
 								}
 							}
@@ -1344,7 +1352,9 @@ EOD;
 								if (!empty($modp)) {
 									$tmpAHalgo = "-{$modp}";
 								}
-								$ealgoAHsp2arr[] = $tmpAHalgo;
+								if (!in_array($tmpAHalgo, $ealgoAHsp2arr)) {
+									$ealgoAHsp2arr[] = $tmpAHalgo;
+								}
 							}
 						}
 					}
@@ -1842,7 +1852,10 @@ EOD;
 					$item = explode(" ", $pppoecfg['username']);
 					foreach ($item as $userdata) {
 						$data = explode(":", $userdata);
-						$mpdsecret .= "{$data[0]} \"" . base64_decode($data[1]) . "\" {$data[2]}\n";
+						/* Escape double quotes, do not allow password to start with '!'
+						 * https://redmine.pfsense.org/issues/10275 */
+						$pass = str_replace('"', '\"', ltrim(base64_decode($data[1]), '!'));
+						$mpdsecret .= "{$data[0]} \"{$pass}\" {$data[2]}\n";
 					}
 				}
 
@@ -1993,6 +2006,13 @@ l2tps:
 	set link enable incoming
 
 EOD;
+			if (isset($l2tpcfg['secret'])) {
+				$secret = str_replace('"', '\"', $l2tpcfg['secret']);
+				$mpdconf .=<<<EOD
+	set l2tp secret "{$secret}"
+
+EOD;
+			}
 
 
 			if (isset ($l2tpcfg['radius']['enable'])) {
@@ -2017,26 +2037,7 @@ EOD;
 			fclose($fd);
 			unset($mpdconf);
 
-			/* write mpd.secret */
-			$fd = fopen("{$g['varetc_path']}/l2tp-vpn/mpd.secret", "w");
-			if (!$fd) {
-				printf(gettext("Error: cannot open mpd.secret in vpn_l2tp_configure().") . "\n");
-				return 1;
-			}
-
-			$mpdsecret = "\n\n";
-
-			if (is_array($l2tpcfg['user'])) {
-				foreach ($l2tpcfg['user'] as $user) {
-					$mpdsecret .= "{$user['name']} \"{$user['password']}\" {$user['ip']}\n";
-				}
-			}
-
-			fwrite($fd, $mpdsecret);
-			fclose($fd);
-			unset($mpdsecret);
-			chmod("{$g['varetc_path']}/l2tp-vpn/mpd.secret", 0600);
-
+			vpn_l2tp_updatesecret();
 			vpn_netgraph_support();
 
 			/* fire up mpd */
@@ -2051,6 +2052,35 @@ EOD;
 	if (platform_booting()) {
 		echo "done\n";
 	}
+
+	return 0;
+}
+
+function vpn_l2tp_updatesecret() {
+	global $config, $g;
+	$l2tpcfg = $config['l2tp'];
+
+	$fd = fopen("{$g['varetc_path']}/l2tp-vpn/mpd.secret", "w");
+	if (!$fd) {
+		printf(gettext("Error: cannot open mpd.secret in vpn_l2tp_updatesecret().") . "\n");
+		return 1;
+	}
+
+	$mpdsecret = "\n\n";
+
+	if (is_array($l2tpcfg['user'])) {
+		foreach ($l2tpcfg['user'] as $user) {
+			/* Escape double quotes, do not allow password to start with '!'
+			 * https://redmine.pfsense.org/issues/10275 */
+			$pass = str_replace('"', '\"', ltrim($user['password'], '!'));
+			$mpdsecret .= "{$user['name']} \"{$pass}\" {$user['ip']}\n";
+		}
+	}
+
+	fwrite($fd, $mpdsecret);
+	fclose($fd);
+	unset($mpdsecret);
+	chmod("{$g['varetc_path']}/l2tp-vpn/mpd.secret", 0600);
 
 	return 0;
 }

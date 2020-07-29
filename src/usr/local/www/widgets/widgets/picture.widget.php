@@ -3,7 +3,7 @@
  * picture.widget.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,11 +49,7 @@ if ($_GET['getpic']=="true") {
 		}
 	}
 
-	header("Content-Disposition: inline; filename=\"" . basename($image_filename) . "\"");
-	header("Content-Type: " . image_type_to_mime_type($pic_type));
-	header("Content-Length: " . strlen($data));
-	echo $data;
-	exit;
+	send_user_download('data', $data, $image_filename, image_type_to_mime_type($pic_type));
 }
 
 if ($_POST['widgetkey']) {

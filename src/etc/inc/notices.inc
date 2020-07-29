@@ -4,7 +4,7 @@
  *
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2005 Colin Smith (ethethlay@gmail.com)
- * Copyright (c) 2005-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2005-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -397,7 +397,11 @@ function send_smtp_message($message, $subject = "(no subject)", $force = false) 
 	);
 
 	if ($config['notifications']['smtp']['sslvalidate'] == "disabled") {
-		$params['socket_options'] = array('ssl' => array('verify_peer_name' => false));
+		$params['socket_options'] = array(
+			'ssl' => array(
+				'verify_peer_name' => false,
+				'verify_peer' => false
+		));
 	}
 
 	if ($config['notifications']['smtp']['fromaddress']) {

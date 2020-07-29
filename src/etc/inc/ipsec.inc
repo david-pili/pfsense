@@ -4,7 +4,7 @@
  *
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2008 Shrew Soft Inc.
- * Copyright (c) 2007-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2007-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -363,6 +363,10 @@ function ipsec_idinfo_to_cidr(& $idinfo, $addrbits = false, $mode = "") {
 			if ($addrbits) {
 				if ($mode == "tunnel6") {
 					return $idinfo['address']."/128";
+				} elseif (($mode == "vti") && is_ipaddrv4($idinfo['address'])) {
+					return $idinfo['address']."/30";
+				} elseif (($mode == "vti") && is_ipaddrv6($idinfo['address'])) {
+					return $idinfo['address']."/64";
 				} else {
 					return $idinfo['address']."/32";
 				}
@@ -917,7 +921,7 @@ function ipsec_get_loglevels() {
 	return $levels;
 }
 
-function ipsec_vti($ph1ent, $returnaddresses = false) {
+function ipsec_vti($ph1ent, $returnaddresses = false, $skipdisabled = true) {
 	global $config;
 	if (empty($ph1ent) || !is_array($ph1ent) || !is_array($config['ipsec']['phase2'])) {
 		return false;
@@ -938,7 +942,11 @@ function ipsec_vti($ph1ent, $returnaddresses = false) {
 					'descr' => $ph2ent['descr'],
 				);
 			}
-			$is_vti = true;
+			if (!$skipdisabled && isset($ph2ent['disabled'])) {
+				continue;
+			} else {
+				$is_vti = true;
+			}
 		}
 	}
 	return ($returnaddresses) ? $vtisubnet_spec : $is_vti;
@@ -949,6 +957,8 @@ function ipsec_vti($ph1ent, $returnaddresses = false) {
  */
 function ipsec_reload_package_hook() {
 	global $g, $config;
+
+	init_config_arr(array('installedpackages', 'package'));
 	foreach ($config['installedpackages']['package'] as $package) {
 		if (!file_exists("/usr/local/pkg/" . $package['configurationfile'])) {
 			continue;

@@ -3,7 +3,7 @@
  * services_captiveportal_vouchers.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2007 Marcel Wiget <mwiget@mac.com>
  * All rights reserved.
  *
@@ -153,10 +153,15 @@ if ($_POST['act'] == "del") {
 			if (isset($id) && $a_voucher[$id]) {
 				$number = $a_voucher[$id]['number'];
 				$count = $a_voucher[$id]['count'];
-				header("Content-Type: application/octet-stream");
-				header("Content-Disposition: attachment; filename=vouchers_{$cpzone}_roll{$number}.csv");
 				if (file_exists("{$g['varetc_path']}/voucher_{$cpzone}.cfg")) {
-					system("/usr/local/bin/voucher -c {$g['varetc_path']}/voucher_{$cpzone}.cfg -p {$g['varetc_path']}/voucher_{$cpzone}.private $number $count");
+					$cmd = "/usr/local/bin/voucher" .
+						" -c " . escapeshellarg("{$g['varetc_path']}/voucher_{$cpzone}.cfg") .
+						" -p " . escapeshellarg("{$g['varetc_path']}/voucher_{$cpzone}.private") .
+						" " . escapeshellarg($number) .
+						" " . escapeshellarg($count);
+					send_user_download('data',
+						shell_exec($cmd),
+						"vouchers_{$cpzone}_roll{$number}.csv");
 				}
 				@unlink("{$g['varetc_path']}/voucher_{$cpzone}.private");
 			} else {

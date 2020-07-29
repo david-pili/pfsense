@@ -2,7 +2,7 @@
 # dot.tcshrc
 #
 # part of pfSense (https://www.pfsense.org)
-# Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+# Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
 # All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -62,7 +62,7 @@ if ( ${http_proxy_auth_user} != "" && ${http_proxy_auth_pass} != "" ) then
 endif
 
 set use_mfs_tmpvar=`/usr/local/sbin/read_xml_tag.sh boolean system/use_mfs_tmpvar`
-if ( $use_mfs_tmpvar == "true" ) then
+if ( $use_mfs_tmpvar == "true" && ! -f "/conf/ram_disks_failed" ) then
 	setenv PKG_DBDIR '/root/var/db/pkg'
 	setenv PKG_CACHEDIR '/root/var/cache/pkg'
 endif

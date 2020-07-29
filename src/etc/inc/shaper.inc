@@ -3,7 +3,7 @@
  * shaper.inc
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -1759,28 +1759,28 @@ class priq_queue {
 			null,
 			null,
 			!empty($this->GetRed())
-		))->setHelp('%1$sRandom Early Detection%2$s', '<a target="_new" href="https://web.archive.org/web/20160404153707/http://www.openbsd.org/faq/pf/queueing.html#red">', '</a>');
+		))->setHelp('%1$sRandom Early Detection%2$s', '<a target="_new" href="https://docs.netgate.com/pfsense/en/latest/book/trafficshaper/advanced-customization.html#editing-shaper-queues">', '</a>');
 
 		$group->add(new Form_Checkbox(
 			'rio',
 			null,
 			null,
 			!empty($this->GetRio())
-		))->setHelp('%1$sRandom Early Detection In and Out%2$s', '<a target="_new" href="https://web.archive.org/web/20160404153707/http://www.openbsd.org/faq/pf/queueing.html#rio">', '</a>');
+		))->setHelp('%1$sRandom Early Detection In and Out%2$s', '<a target="_new" href="https://docs.netgate.com/pfsense/en/latest/book/trafficshaper/advanced-customization.html#editing-shaper-queues">', '</a>');
 
 		$group->add(new Form_Checkbox(
 			'ecn',
 			null,
 			null,
 			!empty($this->GetEcn())
-		))->setHelp('%1$sExplicit Congestion Notification%2$s', '<a target="_new" href="https://web.archive.org/web/20160404153707/http://www.openbsd.org/faq/pf/queueing.html#ecn">', '</a>');
+		))->setHelp('%1$sExplicit Congestion Notification%2$s', '<a target="_new" href="https://docs.netgate.com/pfsense/en/latest/book/trafficshaper/advanced-customization.html#editing-shaper-queues">', '</a>');
 
 		$group->add(new Form_Checkbox(
 			'codel',
 			null,
 			null,
 			!empty($this->GetCodel())
-		))->setHelp('%1$sCodel Active Queue%2$s', '<a target="_new" href="https://web.archive.org/web/20160404153707/http://www.openbsd.org/faq/pf/queueing.html#ecn">', '</a>');
+		))->setHelp('%1$sCodel Active Queue%2$s', '<a target="_new" href="https://docs.netgate.com/pfsense/en/latest/book/trafficshaper/altq-scheduler-types.html#codel-active-queue-management">', '</a>');
 
 		$group->setHelp('Select options for this queue');
 
@@ -4069,7 +4069,7 @@ class dnpipe_class extends dummynet_class {
 			if ($selectedAQM["ecn"]) {
 				if ($this->getECN() == 'on') {
 					$pfq_rule .= ' ecn';
-				} else {
+				} elseif (($this->getAQM() != 'red') && ($this->getAQM() != 'gred')) {
 					$pfq_rule .= ' noecn';
 				}
 			}
@@ -4687,7 +4687,7 @@ class dnqueue_class extends dummynet_class {
 			if ($selectedAQM["ecn"]) {
 				if ($this->getECN() == 'on') {
 					$pfq_rule .= ' ecn';
-				} else {
+				} elseif (($this->getAQM() != 'red') && ($this->getAQM() != 'gred')) {
 					$pfq_rule .= ' noecn';
 				}
 			}

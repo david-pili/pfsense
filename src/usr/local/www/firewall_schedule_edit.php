@@ -3,7 +3,7 @@
  * firewall_schedule_edit.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -105,7 +105,7 @@ if ($_POST['save']) {
 	$schedule = array();
 
 	$schedule['name'] = $_POST['name'];
-	$schedule['descr'] = htmlentities($_POST['descr'], ENT_QUOTES, 'UTF-8');
+	$schedule['descr'] = $_POST['descr'];
 
 	$timerangeFound = false;
 
@@ -128,7 +128,7 @@ if ($_POST['save']) {
 			$timehourstr = $_POST['starttime' . $x];
 			$timehourstr .= "-";
 			$timehourstr .= $_POST['stoptime' . $x];
-			$timedescrstr = htmlentities($_POST['timedescr' . $x], ENT_QUOTES, 'UTF-8');
+			$timedescrstr = $_POST['timedescr' . $x];
 			$dashpos = strpos($timestr, '-');
 
 			if ($dashpos === false) {

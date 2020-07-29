@@ -3,7 +3,7 @@
  * interfaces.inc
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -119,8 +119,15 @@ function does_vip_exist($vip) {
 	}
 
 	$ifacedata = pfSense_getall_interface_addresses($realif);
+
+	if (is_subnetv6("{$vip['subnet']}/{$vip['subnet_bits']}")) {	
+		$comparevip = text_to_compressed_ip6("{$vip['subnet']}/{$vip['subnet_bits']}");
+	} else {
+		$comparevip = "{$vip['subnet']}/{$vip['subnet_bits']}";
+	}
+
 	foreach ($ifacedata as $vipips) {
-		if ($vipips == "{$vip['subnet']}/{$vip['subnet_bits']}") {
+		if ($vipips == $comparevip) {
 			return true;
 		}
 	}
@@ -2517,6 +2524,14 @@ EOD;
 EOD;
 		}
 
+		if (($type == "l2tp") && !empty($ppp['secret'])) {
+			$secret = str_replace('"', '\"', base64_decode($ppp['secret']));
+			$mpdconf .= <<<EOD
+	set l2tp secret "{$secret}"
+
+EOD;
+		}
+
 		if ($type == "pptp" || $type == "l2tp") {
 			$mpdconf .= <<<EOD
 	set {$type} self {$localips[$pid]}
@@ -2564,7 +2579,7 @@ EOD;
 
 	/* Set temporary bogon (RFC 5737) IPv4 addresses to work round mpd5 IPv6CP issue causing */
 	/* random IPv6 interface identifier during boot. More details at */
-	/* https://forum.pfsense.org/index.php?topic=101967.msg570519#msg570519 */
+	/* https://forum.netgate.com/post/592474 */
 	if (platform_booting() && is_array($config['interfaces'])) {
 		$count = 0;
 		foreach ($config['interfaces'] as $tempifacename => $tempiface) {
@@ -4670,7 +4685,7 @@ function interface_dhcpv6_configure($interface = "wan", $wancfg) {
 	$dhcp6cscriptwithoutra .= "/bin/sleep 2\n";
 	$dhcp6cscriptwithoutra .= "/usr/sbin/rtsold -1 -p {$g['varrun_path']}/rtsold_{$wanif}.pid -O {$g['varetc_path']}/rtsold_{$wanif}_script.sh {$wanif}\n";
 	if ($debugOption == '-D') {
-		$dhcp6cscriptwithoutra .= "/usr/bin/logger -t dhcp6c \"dhcp6c REQUEST on {$wanif} - running rc.newwanipv6\"\n";
+		$dhcp6cscriptwithoutra .= "/usr/bin/logger -t dhcp6c \"dhcp6c REQUEST on {$wanif} - running rtsold\"\n";
 	}
 	$dhcp6cscriptwithoutra .= ";;\n";
 	$dhcp6cscriptwithoutra .= "REBIND)\n";
@@ -4718,12 +4733,6 @@ function interface_dhcpv6_configure($interface = "wan", $wancfg) {
 		$dhcp6cscript .= "dmips=\${new_domain_name_servers}\n";
 		$dhcp6cscript .= "dmnames=\${new_domain_name}\n";
 		$dhcp6cscript .= "case \$REASON in\n";
-		$dhcp6cscript .= "REQUEST)\n";
-		$dhcp6cscript .= "/usr/local/sbin/fcgicli -f /etc/rc.newwanipv6 -d \"interface={$wanif}&dmnames=\${dmnames}&dmips=\${dmips}\"\n";
-		if ($debugOption == '-D') {
-			$dhcp6cscript .= "/usr/bin/logger -t dhcp6c \"dhcp6c REQUEST on {$wanif} - running rc.newwanipv6\"\n";
-		}
-		$dhcp6cscript .= ";;\n";
 		$dhcp6cscript .= "REBIND)\n";
 		if ($debugOption == '-D') {
 			$dhcp6cscript .= "/usr/bin/logger -t dhcp6c \"dhcp6c rebind on {$wanif}\"\n";
@@ -4739,7 +4748,7 @@ function interface_dhcpv6_configure($interface = "wan", $wancfg) {
 		}
 		$dhcp6cscript .= "/usr/local/sbin/fcgicli -f /etc/rc.newwanipv6 -d \"interface={$wanif}&dmnames=\${dmnames}&dmips=\${dmips}\"\n";
 		$dhcp6cscript .= ";;\n";
-		$dhcp6cscript .= "RENEW|INFO)\n";
+		$dhcp6cscript .= "RENEW|REQUEST|INFO)\n";
 		if ($debugOption == '-D') {
 			$dhcp6cscript .= "/usr/bin/logger -t dhcp6c \"dhcp6c renew, no change - bypassing update on {$wanif}\"\n";
 		}
@@ -7113,6 +7122,16 @@ function create_interface_list() {
 	}
 
 	return($iflist);
+}
+
+function is_pseudo_interface($inf) {
+	$psifs = array('ovpn', 'ipsec', 'l2tp', 'pptp', 'gif', 'gre', 'ppp', 'pppoe');
+	foreach ($psifs as $pif) {
+		if (substr($inf, 0, strlen($pif)) == $pif) {
+			return true;
+		}
+	}
+	return false;
 }
 
 ?>

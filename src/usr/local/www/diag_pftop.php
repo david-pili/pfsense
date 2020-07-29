@@ -3,7 +3,7 @@
  * diag_pftop.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -203,9 +203,9 @@ print $form;
 events.push(function() {
 	$('#viewtype').on('change', function() {
 		if (['queue', 'label', 'rules'].indexOf($(this).val()) > -1) {
-			$("#sorttype, #sorttypediv, #statesdiv, #states").parents('.form-group').hide();
+			$("#filter, #sorttype, #sorttypediv, #statesdiv, #states").parents('.form-group').hide();
 		} else {
-			$("#sorttype, #sorttypediv, #statesdiv, #states").parents('.form-group').show();
+			$("#filter, #sorttype, #sorttypediv, #statesdiv, #states").parents('.form-group').show();
 		}
 	});
 	$('#filter').on('keypress keyup', function(event) {

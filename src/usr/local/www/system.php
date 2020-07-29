@@ -3,7 +3,7 @@
  * system.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -177,7 +177,7 @@ if ($_POST) {
 			}
 		}
 	}
-	if ($_POST['domain'] && !is_domain($_POST['domain'])) {
+	if ($_POST['domain'] && (!is_domain($_POST['domain'], false, false))) {
 		$input_errors[] = gettext("The domain may only contain the characters a-z, 0-9, '-' and '.'.");
 	}
 	validate_webguicss_field($input_errors, $_POST['webguicss']);

@@ -3,7 +3,7 @@
  * firewall_shaper.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -428,7 +428,7 @@ if (!$dfltmsg && $sform)  {
 			$queue ? 'Delete this queue':'Disable shaper on interface',
 			$url,
 			'fa-trash'
-		))->addClass('btn-danger');
+		))->addClass('btn-danger nowarn');
 
 	}
 

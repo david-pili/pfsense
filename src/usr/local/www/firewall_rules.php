@@ -3,7 +3,7 @@
  * firewall_rules.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -335,6 +335,12 @@ $rulescnt = pfSense_get_pf_rules();
 // Update this if you add or remove columns!
 $columns_in_table = 13;
 
+/* Floating rules tab has one extra column
+ * https://redmine.pfsense.org/issues/10667 */
+if ($if == "FloatingRules") {
+	$columns_in_table++;
+}
+
 ?>
 <!-- Allow table to scroll when dragging outside of the display window -->
 <style>
@@ -356,6 +362,13 @@ $columns_in_table = 13;
 						<th><input type="checkbox" id="selectAll" name="selectAll" /></th>
 						<th><!-- status icons --></th>
 						<th><?=gettext("States")?></th>
+				<?php
+					if ('FloatingRules' == $if) {
+				?>
+						<th><?=gettext("Interfaces")?></th>
+				<?php
+					}
+				?>
 						<th><?=gettext("Protocol")?></th>
 						<th><?=gettext("Source")?></th>
 						<th><?=gettext("Port")?></th>
@@ -643,7 +656,51 @@ foreach ($a_filter as $filteri => $filterent):
 		}
 	?>
 				<td><?php print_states(intval($filterent['tracker'])); ?></td>
-				<td>
+	<?php
+		if ($if == 'FloatingRules') {
+	?>
+			<td onclick="fr_toggle(<?=$nrules;?>)" id="frd<?=$nrules;?>" ondblclick="document.location='firewall_rules_edit.php?id=<?=$i;?>';">
+	<?php
+			if (isset($filterent['interface'])) {
+				$selected_interfaces = explode(',', $filterent['interface']);
+				unset($selected_descs);
+				foreach ($selected_interfaces as $interface) {
+					if (isset($ifdescs[$interface])) {
+						$selected_descs[] = $ifdescs[$interface];
+					} else {
+						switch ($interface) {
+						case 'l2tp':
+							if ($config['l2tp']['mode'] == 'server')
+								$selected_descs[] = 'L2TP VPN';
+							break;
+						case 'pppoe':
+							if (is_pppoe_server_enabled())
+								$selected_descs[] = 'PPPoE Server';
+							break;
+						case 'enc0':
+							if (ipsec_enabled())
+								$selected_descs[] = 'IPsec';
+							break;
+						case 'openvpn':
+							if  ($config['openvpn']['openvpn-server'] || $config['openvpn']['openvpn-client'])
+								$selected_descs[] = 'OpenVPN';
+							break;
+						default:
+							$selected_descs[] = $interface;
+							break;
+						}
+					}
+				}
+				if (!empty($selected_descs)) {
+					echo implode('<br/>', $selected_descs);
+				}
+			}
+	?>
+			</td>
+	<?php
+		}
+	?>
+			<td>
 	<?php
 		if (isset($filterent['ipprotocol'])) {
 			switch ($filterent['ipprotocol']) {

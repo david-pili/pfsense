@@ -28,12 +28,12 @@ net-mgmt/%%PRODUCT_NAME%%-pkg-snmptt
 net-mgmt/%%PRODUCT_NAME%%-pkg-softflowd
 net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-agent
 net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-agent4
-net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-agent42
 net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-agent44
+net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-agent5
 net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-proxy
 net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-proxy4
-net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-proxy42
 net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-proxy44
+net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-proxy5
 net-mgmt/dhcp_probe
 net-mgmt/iprange
 net-mgmt/net-snmp
@@ -52,12 +52,14 @@ net/%%PRODUCT_NAME%%-pkg-mtr-nox11
 net/%%PRODUCT_NAME%%-pkg-ntopng
 net/%%PRODUCT_NAME%%-pkg-pfBlockerNG
 net/%%PRODUCT_NAME%%-pkg-pfBlockerNG-devel
+net/%%PRODUCT_NAME%%-pkg-pimd
 net/%%PRODUCT_NAME%%-pkg-routed
 net/%%PRODUCT_NAME%%-pkg-siproxd
 net/bird
 net/hping
 net/mosh
 net/nss_ldap
+net/pimd
 net/py-speedtest-cli
 net/trafshow
 net/trafshow3
@@ -93,6 +95,7 @@ sysutils/flashrom
 sysutils/htop
 sysutils/lsof
 sysutils/pstree
+sysutils/screen
 sysutils/stress
 sysutils/tmux
 sysutils/usb_modeswitch

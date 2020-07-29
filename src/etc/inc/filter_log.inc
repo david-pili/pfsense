@@ -3,7 +3,7 @@
  * filter_log.inc
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -440,7 +440,7 @@ function parse_firewall_log_line($line) {
 }
 
 function get_port_with_service($port, $proto) {
-	if (!$port) {
+	if (!$port || !is_port($port)) {
 		return '';
 	}
 

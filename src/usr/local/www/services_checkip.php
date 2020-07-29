@@ -3,7 +3,7 @@
  * services_checkip.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -89,7 +89,7 @@ if ($input_errors) {
 						<tr>
 							<th><?=gettext("Name")?></th>
 							<th><?=gettext("URL")?></th>
-							<th><?=gettext("Verify SSL Peer")?></th>
+							<th><?=gettext("Verify SSL/TLS Peer")?></th>
 							<th><?=gettext("Description")?></th>
 							<th><?=gettext("Actions")?></th>
 						</tr>

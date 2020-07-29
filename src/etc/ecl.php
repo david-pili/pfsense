@@ -2,7 +2,7 @@
 /*
  * ecl.php
  *
- * Copyright (c) 2010-2019 Rubicon Communications, LLC (Netgate). All rights reserved.
+ * Copyright (c) 2010-2020 Rubicon Communications, LLC (Netgate). All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +47,10 @@ function get_disks() {
 	$disks_array = array();
 	$disks_s = explode(" ", get_single_sysctl("kern.disks"));
 	foreach ($disks_s as $disk) {
+		/* Ignore the flash devices (ARM). */
+		if (strstr($disk, "flash")) {
+			continue;
+		}
 		if (trim($disk)) {
 			$disks_array[] = $disk;
 		}

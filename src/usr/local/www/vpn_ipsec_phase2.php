@@ -3,7 +3,7 @@
  * vpn_ipsec_phase2.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2008 Shrew Soft Inc
  * All rights reserved.
  *
@@ -689,7 +689,7 @@ $section->add($group);
 
 $sm = (!isset($pconfig['mobile']) || !isset($a_client['pfs_group']));
 $helpstr = $sm ? '':'Set globally in mobile client options. ';
-$helpstr .= 'Note: Groups 1, 2, 22, 23, and 24 provide weak security and should be avoided.';
+$helpstr .= 'Note: Groups 1, 2, 5, 22, 23, and 24 provide weak security and should be avoided.';
 
 $section->addInput(new Form_Select(
 	'pfsgroup',
@@ -783,11 +783,13 @@ events.push(function() {
 		} else if (value == 'vti') {
 			hideClass('opt_localid', false);
 			hideClass('opt_natid', true);
-			$('#localid_type').val('network');
+			hideClass('opt_remoteid', false);
+			$('#localid_type').val('address');
+			disableInput('localid_type', false);
 			typesel_change_local(30);
 			$('#remoteid_type').val('address');
-			disableInput('remoteid_type', true);
-			typesel_change_remote(32);
+			disableInput('remoteid_type', false);
+			typesel_change_remote(30);
 			$('#opt_localid_help').html("<?=$localid_help_vti?>");
 			$('#opt_remoteid_help').html("<?=$remoteid_help_vti?>");
 		} else {

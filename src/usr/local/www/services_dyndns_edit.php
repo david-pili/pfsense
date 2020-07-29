@@ -3,7 +3,7 @@
  * services_dyndns_edit.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -358,10 +358,10 @@ $section->addInput(new Form_Checkbox(
 
 $section->addInput(new Form_Checkbox(
 	'curl_ssl_verifypeer',
-	'HTTP API SSL Options',
-	'Verify SSL Certificate Trust',
+	'HTTP API SSL/TLS Options',
+	'Verify SSL/TLS Certificate Trust',
 	$pconfig['curl_ssl_verifypeer']
-))->setHelp('When set, the server must provide a valid certificate trust chain which can be verified by this firewall.');
+))->setHelp('When set, the server must provide a valid SSL/TLS certificate trust chain which can be verified by this firewall.');
 
 $section->addInput(new Form_Input(
 	'username',
@@ -387,7 +387,6 @@ $section->addPassword(new Form_Input(
 ))->setHelp('FreeDNS (freedns.afraid.org): Enter the "Authentication Token" provided by FreeDNS.%1$s' .
 			'Azure: client secret of the AD application%1$s' .
 			'DNS Made Easy: Dynamic DNS Password%1$s' .
-			'DNSimple: User account token%1$s' .
 			'DigitalOcean: Enter API token%1$s' .
 			'Route 53: Enter the Secret Access Key.%1$s' .
 			'GleSYS: Enter the API key.%1$s' .
@@ -570,7 +569,7 @@ events.push(function() {
 				hideCheckbox('wildcard', true);
 				hideCheckbox('proxied', false);
 				hideInput('zoneid', true);
-				hideInput('ttl', true);
+				hideInput('ttl', false);
 				break;
 			case "digitalocean":
 		        case "digitalocean-v6":

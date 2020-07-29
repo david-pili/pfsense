@@ -3,7 +3,7 @@
  * diag_backup.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -197,15 +197,16 @@ if ($_POST) {
 				/*
 				 *	Backup RRD Data
 				 */
+
+				/* If the config on disk had rrddata tags already, remove that section first.
+				 * See https://redmine.pfsense.org/issues/8994 and
+				 *     https://redmine.pfsense.org/issues/10508 */
+				$data = preg_replace("/[[:blank:]]*<rrddata>.*<\\/rrddata>[[:blank:]]*\n*/s", "", $data);
+				$data = preg_replace("/[[:blank:]]*<rrddata\\/>[[:blank:]]*\n*/", "", $data);
+
 				if ($_POST['backuparea'] !== "rrddata" && !$_POST['donotbackuprrd']) {
 					$rrd_data_xml = rrd_data_xml();
 					$closing_tag = "</" . $g['xml_rootobj'] . ">";
-
-					/* If the config on disk had rrddata tags already, remove that section first.
-					 * See https://redmine.pfsense.org/issues/8994 */
-					$data = preg_replace("/<rrddata>.*<\\/rrddata>/", "", $data);
-					$data = preg_replace("/<rrddata\\/>/", "", $data);
-
 					$data = str_replace($closing_tag, $rrd_data_xml . $closing_tag, $data);
 				}
 
@@ -214,24 +215,7 @@ if ($_POST) {
 					tagfile_reformat($data, $data, "config.xml");
 				}
 
-				$size = strlen($data);
-				header("Content-Type: application/octet-stream");
-				header("Content-Disposition: attachment; filename={$name}");
-				header("Content-Length: $size");
-				if (isset($_SERVER['HTTPS'])) {
-					header('Pragma: ');
-					header('Cache-Control: ');
-				} else {
-					header("Pragma: private");
-					header("Cache-Control: private, must-revalidate");
-				}
-
-				while (ob_get_level()) {
-					@ob_end_clean();
-				}
-				echo $data;
-				@ob_end_flush();
-				exit;
+				send_user_download('data', $data, $name);
 			}
 		}
 
@@ -248,18 +232,17 @@ if ($_POST) {
 					/* read the file contents */
 					$data = file_get_contents($_FILES['conffile']['tmp_name']);
 					if (!$data) {
-						log_error(sprintf(gettext("Warning, could not read file %s"), $_FILES['conffile']['tmp_name']));
-						return 1;
-					}
-
-					if ($_POST['decrypt']) {
+						$input_errors[] = gettext("Warning, could not read file {$_FILES['conffile']['tmp_name']}");
+					} elseif ($_POST['decrypt']) {
 						if (!tagfile_deformat($data, $data, "config.xml")) {
 							$input_errors[] = gettext("The uploaded file does not appear to contain an encrypted pfsense configuration.");
-							return 1;
+						} else {
+							$data = decrypt_data($data, $_POST['decrypt_password']);
+							if (empty($data)) {
+								$input_errors[] = gettext("File decryption failed. Incorrect password or file is invalid.");
+							}
 						}
-						$data = decrypt_data($data, $_POST['decrypt_password']);
 					}
-
 					if (stristr($data, "<m0n0wall>")) {
 						log_error(gettext("Upgrading m0n0wall configuration to pfsense."));
 						/* m0n0wall was found in config.  convert it. */
@@ -273,7 +256,7 @@ if ($_POST) {
 					$data = preg_replace("/<rrddata><\\/rrddata>/", "", $data);
 					$data = preg_replace("/<rrddata\\/>/", "", $data);
 
-					if ($_POST['restorearea']) {
+					if ($_POST['restorearea'] && !$input_errors) {
 						/* restore a specific area of the configuration */
 						if (!stristr($data, "<" . $_POST['restorearea'] . ">")) {
 							$input_errors[] = gettext("An area to restore was selected but the correct xml tag could not be located.");
@@ -292,7 +275,7 @@ if ($_POST) {
 								$savemsg = gettext("The configuration area has been restored. The firewall may need to be rebooted.");
 							}
 						}
-					} else {
+					} elseif (!$input_errors) {
 						if (!stristr($data, "<" . $g['xml_rootobj'] . ">")) {
 							$input_errors[] = sprintf(gettext("A full configuration restore was selected but a %s tag could not be located."), $g['xml_rootobj']);
 						} else {

@@ -3,7 +3,7 @@
  * openvpn_wizard.inc
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -470,10 +470,7 @@ function step12_submitphpaction() {
 		if ($auth['type'] == "ldap") {
 			$auth['host'] = $pconfig['step2']['ip'];
 			$auth['ldap_port'] = $pconfig['step2']['port'];
-			if ($pconfig['step1']['transport'] == "tcp")
-				$auth['ldap_urltype'] = 'TCP - Standard';
-			else
-				$auth['ldap_urltype'] = 'SSL - Encrypted';
+			$auth['ldap_urltype'] = $pconfig['step2']['transport'];
 			$auth['ldap_caref'] = $pconfig['step2']['ldap_caref'];
 			$auth['ldap_protver'] = $pconfig['step2']['ldap_protver'];
 			$auth['ldap_timeout'] = $pconfig['step2']['ldap_timeout'];

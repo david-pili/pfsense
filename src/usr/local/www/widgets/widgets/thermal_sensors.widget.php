@@ -3,7 +3,7 @@
  * thermal_sensors.widget.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,13 +20,20 @@
  */
 
 require_once("guiconfig.inc");
+require_once("system.inc");
 
 
 //=========================================================================
 //called by showThermalSensorsData() (jQuery Ajax call) in thermal_sensors.js
 if (isset($_REQUEST["getThermalSensorsData"])) {
 
-	$_gb = exec("/sbin/sysctl -aq | grep temperature", $dfout);
+	$specplatform = system_identify_specific_platform();
+	if ($specplatform['name'] == 'SG-5100') {
+		$_gb = exec("/sbin/sysctl -q dev.cpu | grep temperature | sort",
+		    $dfout);
+	} else {
+		$_gb = exec("/sbin/sysctl -aq | grep temperature", $dfout);
+	}
 	$dfout_filtered = array_filter($dfout, function($v) {
 		return strpos($negsign, ' -') === false;
 	});

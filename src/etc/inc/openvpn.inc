@@ -4,7 +4,7 @@
  *
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2006 Fernando Lemos
- * Copyright (c) 2006-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2006-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * This file was rewritten from scratch by Fernando Lemos but
@@ -534,7 +534,7 @@ function openvpn_remap_digest($digest) {
 
 function openvpn_get_keydirlist() {
 	$keydirs = array(
-		''  => gettext('Use default direction'),
+		'default'  => gettext('Use default direction'),
 		'0' => gettext('Direction 0'),
 		'1' => gettext('Direction 1'),
 		'2' => gettext('Both directions'),
@@ -1046,7 +1046,8 @@ function openvpn_reconfigure($mode, $settings) {
 				$conf .= "verify-client-cert none\n";
 			case 'server_tls_user':
 				/* username-as-common-name is not compatible with server-bridge */
-				if (stristr($conf, "server-bridge") === false) {
+				if ((stristr($conf, "server-bridge") === false) &&
+				    ($settings['username_as_common_name'] != 'disabled')) {
 					$conf .= "username-as-common-name\n";
 				}
 				if (!empty($settings['authmode'])) {
@@ -1137,7 +1138,11 @@ function openvpn_reconfigure($mode, $settings) {
 		$conf .= "management {$g['varetc_path']}/openvpn/{$mode_id}.sock unix\n";
 
 		// The remote server
-		$conf .= "remote {$settings['server_addr']} {$settings['server_port']}\n";
+		$remoteproto = strtolower($settings['protocol']);
+		if (substr($remoteproto, 0, 3) == "tcp") {
+			$remoteproto .= "-{$mode}";
+		}
+		$conf .= "remote {$settings['server_addr']} {$settings['server_port']} {$remoteproto}\n";
 
 		if (!empty($settings['use_shaper'])) {
 			$conf .= "shaper {$settings['use_shaper']}\n";

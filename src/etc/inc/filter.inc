@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2005 Bill Marquette
  * Copyright (c) 2006 Peter Allgeyer
- * Copyright (c) 2008-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2008-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally part of m0n0wall (http://m0n0.ch/wall)
@@ -983,7 +983,8 @@ function filter_get_vpns_list() {
 		}
 		if (is_array($config['ipsec']['phase2'])) {
 			foreach ($config['ipsec']['phase2'] as $ph2ent) {
-				if ((!$ph2ent['mobile']) && ($ph2ent['mode'] != 'transport')) {
+				if ((!$ph2ent['mobile']) && ($ph2ent['mode'] != 'transport') &&
+				    !isset($ph2ent['disabled'])) {
 					if (!is_array($ph2ent['remoteid'])) {
 						continue;
 					}
@@ -1665,16 +1666,6 @@ function filter_nat_rules_automatic_tonathosts($with_descr = false) {
 		}
 	}
 
-	/* L2TP subnet */
-	if (isset($FilterIflist['l2tp']) && $FilterIflist['l2tp']['mode'] == "server") {
-		$l2tp_sa = $FilterIflist['l2tp']['sa'];
-		$l2tp_sn = $FilterIflist['l2tp']['sn'];
-		if (is_private_ip($l2tp_sa) && !empty($l2tp_sn)) {
-			$tonathosts[] = "{$l2tp_sa}/{$l2tp_sn}";
-			$descriptions[] = gettext("L2TP server");
-		}
-	}
-
 	/* add openvpn interfaces */
 	if (is_array($config['openvpn']['openvpn-server'])) {
 		foreach ($config['openvpn']['openvpn-server'] as $ovpnsrv) {
@@ -1700,6 +1691,19 @@ function filter_nat_rules_automatic_tonathosts($with_descr = false) {
 	    (!empty($config['ipsec']['client']['pool_netbits']))) {
 		$tonathosts[] = "{$config['ipsec']['client']['pool_address']}/{$config['ipsec']['client']['pool_netbits']}";
 		$descriptions[] = gettext("IPsec client");
+	}
+	if (isset($config['ipsec']['client']['enable']) &&
+	    isset($config['ipsec']['mobilekey'])) {
+		foreach ($config['ipsec']['mobilekey'] as $key) {
+			if (in_array("{$key['pool_address']}/{$key['pool_netbits']}", $tonathosts)) {
+				continue;
+			}
+			if (!empty($key['pool_address']) &&
+			    !empty($key['pool_netbits'])) {
+				$tonathosts[] = "{$key['pool_address']}/{$key['pool_netbits']}";
+				$descriptions[] = gettext("IPsec client");
+			}
+		}
 	}
 	if (is_array($config['ipsec']) && is_array($config['ipsec']['phase1']) && is_array($config['ipsec']['phase2'])) {
 		foreach ($config['ipsec']['phase1'] as $ph1ent) {
@@ -2387,8 +2391,8 @@ function filter_nat_rules_generate() {
 					$dstaddr_reflect = gen_subnet($dstaddr_reflect, $FilterIflist[$natif]['sn']) . '/' . $FilterIflist[$natif]['sn'];
 				}
 
-				if ($dstaddr_port[2]) {
-					$dstaddr_reflect .= " port " . $dstaddr_port[2];
+				if ($dstaddr_port[count($dstaddr_port)-1]) {
+					$dstaddr_reflect .= " port " . $dstaddr_port[count($dstaddr_port)-1];
 				}
 			}
 
@@ -2420,8 +2424,8 @@ function filter_nat_rules_generate() {
 			}
 
 			$localport_nat = $localport;
-			if (empty($localport_nat) && $dstaddr_port[2]) {
-				$localport_nat = " port " . $dstaddr_port[2];
+			if (empty($localport_nat) && is_port($dstaddr_port[count($dstaddr_port)-1])) {
+				$localport_nat = " port " . $dstaddr_port[count($dstaddr_port)-1];
 			}
 
 			if ($srcaddr <> "" && $dstaddr <> "" && $natif) {
@@ -2554,16 +2558,27 @@ function filter_address_add_vips_subnets(&$subnets, $if, $not) {
 	global $FilterIflist;
 
 	$if_subnets = array($subnets);
+	$vips = array();
+	$vips6 = array();
 
 	if ($not == true) {
 		$subnets = "!{$subnets}";
 	}
 
-	if (!isset($FilterIflist[$if]['vips']) || !is_array($FilterIflist[$if]['vips'])) {
+	if ((!isset($FilterIflist[$if]['vips']) || !is_array($FilterIflist[$if]['vips'])) &&
+	    (!isset($FilterIflist[$if]['vips6']) || !is_array($FilterIflist[$if]['vips6']))) {
 		return;
 	}
 
-	foreach ($FilterIflist[$if]['vips'] as $vip) {
+	if (isset($FilterIflist[$if]['vips']) && is_array($FilterIflist[$if]['vips'])) {
+		$vips = $FilterIflist[$if]['vips'];
+	}
+
+	if (isset($FilterIflist[$if]['vips6']) && is_array($FilterIflist[$if]['vips6'])) {
+		$vips6 = $FilterIflist[$if]['vips6'];
+	}
+
+	foreach (array_merge($vips, $vips6) as $vip) {
 		foreach ($if_subnets as $subnet) {
 			if (ip_in_subnet($vip['ip'], $subnet)) {
 				continue 2;

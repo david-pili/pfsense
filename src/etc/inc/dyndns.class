@@ -3,7 +3,7 @@
  * dyndns.class
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -627,7 +627,7 @@
 					break;
 				case 'dnsexit':
 					$needsIP = TRUE;
-					curl_setopt($ch, CURLOPT_URL, 'https://www.dnsexit.com/RemoteUpdate.sv?login='.$this->_dnsUser. '&password='.$this->_dnsPass.'&host='.$this->_dnsHost.'&myip='.$this->_dnsIP);
+					curl_setopt($ch, CURLOPT_URL, 'https://update.dnsexit.com/RemoteUpdate.sv?login='.$this->_dnsUser. '&password='.$this->_dnsPass.'&host='.$this->_dnsHost.'&myip='.$this->_dnsIP);
 					break;
 				case 'loopia':
 					$needsIP = TRUE;
@@ -817,7 +817,8 @@
 								"content" => "{$this->_dnsIP}",
 								"type" => "{$recordType}",
 								"proxied" => $this->_dnsProxied,
-								"name" => "{$this->_dnsHost}"
+								"name" => "{$this->_dnsHost}",
+								"ttl" => empty($this->_dnsTTL) ? 1 : (int) $this->_dnsTTL
 							);
 							$data_json = json_encode($hostData);
 							$updateHostId = "https://{$dnsServer}/client/v4/zones/{$zone}/dns_records/{$host}";
@@ -1023,7 +1024,7 @@
 					foreach($output->domain_records as $dnsRecord) {
 						// NS records are named @ in DO's API, so check type as well 
 						// https://redmine.pfsense.org/issues/9171
-						if ($this->_dnsHost == $dnsRecord->name && $dnsRecord->type == 'A') {
+						if ($this->_dnsHost == $dnsRecord->name && $dnsRecord->type == ($isv6 ? 'AAAA' : 'A')) {
 							$recordID = $dnsRecord->id;
 							break;
 						}

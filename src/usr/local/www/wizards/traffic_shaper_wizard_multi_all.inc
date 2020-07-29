@@ -3,7 +3,7 @@
  * traffic_shaper_wizard_multi_all.inc
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -1186,7 +1186,7 @@ function apply_all_chosen_items() {
 			if ($sched != "PRIQ") {
 				$voipbw = $config['ezshaper']['step3']["local{$i}download"];
 				$voipbwunit = $config['ezshaper']['step3']["local{$i}downloadspeed"];
-				if ($sched != HFSC) {
+				if ($sched != 'HFSC') {
 					if ($voipbwunit == "%")
 						$factor = $lanbw/100;
 					else

@@ -3,7 +3,7 @@
  * netgate_services_and_support.widget.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -38,9 +38,10 @@ $refreshinterval = (24 * 3600);	// 24 hours
 
 if ($_REQUEST['ajax']) {
 
-	// Retrieve the support data from Netgate.com if the support data file does not exist,
-	// or if it is more than a day old
-	if (!file_exists($supportfile) || ( time()-filemtime($supportfile) > $refreshinterval)) {
+	// Retrieve the support data from Netgate.com if
+	// the support data file does not exist, or
+	// if it is more than a day old and the URL seems resolvable
+	if ( !file_exists($supportfile) || ( time()-filemtime($supportfile) > $refreshinterval && is_url_hostname_resolvable($FQDN) ) ) {
 		if (file_exists($supportfile)) {
 			unlink($supportfile);
 		}

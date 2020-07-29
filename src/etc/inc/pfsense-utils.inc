@@ -3,7 +3,7 @@
  * pfsense-utils.inc
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -1182,7 +1182,8 @@ function load_loader_conf($loader_conf = NULL, $local = false) {
 	/* These values should be removed from loader.conf and loader.conf.local
 	 * As they will be replaced when necessary. */
 	$remove = array("hw.usb.no_pf", "hint.mdio.0.at", "hint.e6000sw.0",
-	    "hw.e6000sw.default_disabled", "vm.pmap.pti");
+	    "hw.e6000sw.default_disabled", "vm.pmap.pti",
+	    "net.pf.request_maxcount");
 	if (!$local) {
 		/* These values should only be filtered in loader.conf, not .local */
 		$remove = array_merge($remove,
@@ -1302,6 +1303,13 @@ function setup_loader_settings($path = "", $upgrade = false) {
 	if (isset($config['system']['pti_disabled'])) {
 		$data[] = 'vm.pmap.pti="0"';
 	}
+
+	if (isset($config['system']['maximumtableentries'])) {
+		$maximumtableentries = $config['system']['maximumtableentries'];
+	} else {
+		$maximumtableentries = pfsense_default_table_entries_size();
+	}
+	$data[] = 'net.pf.request_maxcount="' .  $maximumtableentries . '"';
 
 	safe_write_file($loader_conf_file, $data);
 
@@ -1857,27 +1865,53 @@ function get_uptime_sec() {
 	return $uptime;
 }
 
+function resolve_host_addresses($host, $recordtypes = array(DNS_A, DNS_AAAA, DNS_CNAME), $index = true) {
+	$dnsresult = array();
+	$resolved = array();
+	$errreporting = error_reporting();
+	error_reporting($errreporting & ~E_WARNING);// dns_get_record throws a warning if nothing is resolved..
+	foreach ($recordtypes as $recordtype) {
+		$tmp = dns_get_record($host, $recordtype);
+		if (is_array($tmp)) {
+			$dnsresult = array_merge($dnsresult, $tmp);
+		}
+	}
+	error_reporting($errreporting);// restore original php warning/error settings.
+	foreach ($dnsresult as $item) {
+		$newitem = array();
+		$newitem['type'] = $item['type'];
+		switch ($item['type']) {
+			case 'CNAME':
+				$newitem['data'] = $item['target'];
+				$resolved[] = $newitem;
+				break;
+			case 'A':
+				$newitem['data'] = $item['ip'];
+				$resolved[] = $newitem;
+				break;
+			case 'AAAA':
+				$newitem['data'] = $item['ipv6'];
+				$resolved[] = $newitem;
+				break;
+		}
+	}
+	if ($index == false) {
+		foreach ($resolved as $res) {
+			$noind[] = $res['data'];
+		}
+		$resolved = $noind;
+	}
+	return $resolved;
+}
+
 function add_hostname_to_watch($hostname) {
 	if (!is_dir("/var/db/dnscache")) {
 		mkdir("/var/db/dnscache");
 	}
 	$result = array();
 	if ((is_fqdn($hostname)) && (!is_ipaddr($hostname))) {
-		$domrecords = array();
-		$domips = array();
-		exec("/usr/bin/host -t A " . escapeshellarg($hostname), $domrecords, $rethost);
-		if ($rethost == 0) {
-			foreach ($domrecords as $domr) {
-				$doml = explode(" ", $domr);
-				$domip = $doml[3];
-				/* fill array with domain ip addresses */
-				if (is_ipaddr($domip)) {
-					$domips[] = $domip;
-				}
-			}
-		}
-		sort($domips);
 		$contents = "";
+		$domips = resolve_host_addresses($hostname, array(DNS_A), false);
 		if (!empty($domips)) {
 			foreach ($domips as $ip) {
 				$contents .= "$ip\n";
@@ -1940,21 +1974,8 @@ function compare_hostname_to_dnscache($hostname) {
 		$oldcontents = "";
 	}
 	if ((is_fqdn($hostname)) && (!is_ipaddr($hostname))) {
-		$domrecords = array();
-		$domips = array();
-		exec("/usr/bin/host -t A " . escapeshellarg($hostname), $domrecords, $rethost);
-		if ($rethost == 0) {
-			foreach ($domrecords as $domr) {
-				$doml = explode(" ", $domr);
-				$domip = $doml[3];
-				/* fill array with domain ip addresses */
-				if (is_ipaddr($domip)) {
-					$domips[] = $domip;
-				}
-			}
-		}
-		sort($domips);
 		$contents = "";
+		$domips = resolve_host_addresses($hostname, array(DNS_A), false);
 		if (!empty($domips)) {
 			foreach ($domips as $ip) {
 				$contents .= "$ip\n";
@@ -2373,7 +2394,7 @@ function parse_aliases_file($filename, $type = "url", $max_items = -1, $kflc = f
 	$comments = array();
 	/* NOTE: fgetss() is not a typo RTFM before being smart */
 	while (($fc = fgetss($fd)) !== FALSE) {
-		$tmp = trim($fc, " \t\n\r");
+		$tmp = idn_to_ascii(trim($fc, " \t\n\r"));
 		if (empty($tmp)) {
 			continue;
 		}
@@ -2388,13 +2409,36 @@ function parse_aliases_file($filename, $type = "url", $max_items = -1, $kflc = f
 			if (!empty($tmp_str)) {
 				$tmp = $tmp_str;
 			}
-			$valid = (($type == "url" || $type == "urltable") && (is_ipaddr($tmp) || is_subnet($tmp))) ||
-				(($type == "url_ports" || $type == "urltable_ports") && is_port_or_range($tmp));
-			if ($valid) {
-				$items[] = $tmp;
-				if (count($items) == $max_items) {
+			switch ($type) {
+				case "url":
+				case "urltable":
+					if (is_ipaddr($tmp) || is_subnet($tmp)) {
+						$items[] = $tmp;
+						break;
+					}
+					if (is_fqdn($tmp)) {
+						$results = resolve_host_addresses($tmp, array(DNS_A, DNS_AAAA), false);
+						if (!empty($results)) {
+							foreach ($results as $ip) {
+								if (is_ipaddr($ip)) {
+									$items[] = $ip;
+								}
+							}
+						}
+					}
+					break;
+				case "url_ports":
+				case "urltable_ports":
+					if (is_port_or_range($tmp)) {
+						$items[] = $tmp;
+					}
+					break;
+				default:
+					/* unknown type */
 					break;
 				}
+			if (count($items) == $max_items) {
+				break;
 			}
 		}
 	}
@@ -2622,7 +2666,7 @@ function process_alias_urltable($name, $type, $url, $freq, $forceupdate=false, $
 
 			/* Remove existing archive and create an up to date archive if RAM disk is enabled. */
 			unlink_if_exists("{$g['cf_conf_path']}/RAM_Disk_Store/{$name}.txt.tgz");
-			if (isset($config['system']['use_mfs_tmpvar'])) {
+			if (isset($config['system']['use_mfs_tmpvar']) && !file_exists("/conf/ram_disks_failed")) {
 				mwexec("/usr/bin/tar -czf " . escapeshellarg("{$g['cf_conf_path']}/RAM_Disk_Store/{$name}.txt.tgz") . " -C / " . escapeshellarg($urltable_filename));
 			}
 
@@ -3074,12 +3118,13 @@ function get_locale_list() {
 		"bs" => gettext("Bosnian"),
 		"zh_CN" => gettext("Chinese"),
 		"zh_Hans_CN" => gettext("Chinese (Simplified, China)"),
-		"zh_HK" => gettext("Chinese (Hong Kong)"),
-		"zh_TW" => gettext("Chinese (Taiwan)"),
+		"zh_Hans_HK" => gettext("Chinese (Simplified, Hong Kong SAR China)"),
+		"zh_Hant_TW" => gettext("Chinese (Traditional, Taiwan)"),
 		"nl" => gettext("Dutch"),
 		"en_US" => gettext("English"),
 		"fr" => gettext("French"),
 		"de_DE" => gettext("German (Germany)"),
+		"it" => gettext("Italian"),
 		"ko" => gettext("Korean"),
 		"nb" => gettext("Norwegian Bokmål"),
 		"pl" => gettext("Polish"),
@@ -3465,6 +3510,76 @@ function &getarraybyref(&$array) {
 		$item = &$item[$itemindex];
 	}
 	return $item;
+}
+
+/****f* pfsense-utils/send_download_data
+ * NAME
+ *   send_download_data - Send content to a user's browser as a file to download
+ * INPUTS
+ *   $type        : The type of download, either 'data' to send the contents of
+ *                    a variable or 'file' to send the contents of a file on the
+ *                    filesystem.
+ *   $content     : For 'data' type, the content to send the user. For 'file'
+ *                    type, the full path to the file to send.
+ *   $userfilename: The filename presented to the user when downloading. For
+ *                    'file' type, this may be omitted and the basename of
+ *                    $content will be used instead.
+ *   $contenttype : MIME content type of the data. Default "application/octet-stream"
+ * RESULT
+ *   Sends the data to the browser as a file to download.
+ ******/
+
+function send_user_download($type = 'data', $content, $userfilename = "", $contenttype = "application/octet-stream") {
+	/* If the type is 'file', then use the file size, otherwise use the size of the data to send */
+	$size = ($type == 'file') ? filesize($content) : strlen($content);
+
+	/* If the filename to pass to the user is empty, assume it to be the filename being read. */
+	$name = basename((($type == 'file') && empty($userfilename)) ? $content : $userfilename);
+
+	/* Cannot determine the filename, so bail. */
+	if (empty($name)) {
+		exit;
+	}
+
+	/* Send basic download headers */
+	header("Content-Type: {$contenttype}");
+	header("Content-Length: {$size}");
+	header("Content-Disposition: attachment; filename=" . urlencode($name));
+
+	/* Send cache headers */
+	if (isset($_SERVER['HTTPS'])) {
+		header('Pragma: ');
+		header('Cache-Control: ');
+	} else {
+		header("Pragma: private");
+		header("Cache-Control: private, must-revalidate");
+	}
+
+	/* Ensure output buffering is off so PHP does not consume
+	 * memory in readfile(). https://redmine.pfsense.org/issues/9239 */
+	while (ob_get_level()) {
+		@ob_end_clean();
+	}
+
+	/* Send the data to the user */
+	if ($type == 'file') {
+		readfile($content);
+	} else {
+		echo $content;
+	}
+
+	/* Flush any remaining output buffer */
+	@ob_end_flush();
+	exit;
+}
+
+// Test whether the hostname in a URL can be resolved with a very short timeout
+function is_url_hostname_resolvable($url) {
+	$urlhostname = explode("/", $url)[2];
+	putenv("RES_OPTIONS=timeout:3 attempts:1");
+	$resolvable = $urlhostname !== gethostbyname($urlhostname);
+	putenv("RES_OPTIONS");
+	return $resolvable;
 }
 
 ?>

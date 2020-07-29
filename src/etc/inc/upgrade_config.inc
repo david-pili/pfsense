@@ -3,7 +3,7 @@
  * upgrade_config.inc
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -1947,7 +1947,7 @@ function upgrade_052_to_053() {
 		/* create cert entry */
 		$cert = array();
 		$cert['refid'] = uniqid();
-		$cert['descr'] = "webConfigurator SSL Certificate";
+		$cert['descr'] = "webConfigurator SSL/TLS Certificate";
 		$cert['crt'] = $config['system']['webgui']['certificate'];
 		$cert['prv'] = $config['system']['webgui']['private-key'];
 		$config['cert'][] = $cert;
@@ -5479,17 +5479,31 @@ function upgrade_174_to_175() {
 	if (count($config['ipsec']['phase1'])) {
 		$a_phase1 = &$config['ipsec']['phase1'];
 		foreach($a_phase1 as &$phase1) {
-			if (empty($phase1)) {
+			if (empty($phase1) || !is_array($phase1)) {
 				continue;
 			}
 			$item = array();
-			$item['encryption-algorithm'] = $phase1['encryption-algorithm'];
-			$item['hash-algorithm'] = $phase1['hash-algorithm'];
-			$item['dhgroup'] = $phase1['dhgroup'];
-			$phase1['encryption']['item'][] = $item;
-			unset($phase1['encryption-algorithm']);
-			unset($phase1['hash-algorithm']);
-			unset($phase1['dhgroup']);
+			if (isset($phase1['encryption-algorithm']) && !empty($phase1['encryption-algorithm'])) {
+				$item['encryption-algorithm'] = $phase1['encryption-algorithm'];
+				unset($phase1['encryption-algorithm']);
+			}
+			if (isset($phase1['hash-algorithm']) && !empty($phase1['hash-algorithm'])) {
+				$item['hash-algorithm'] = $phase1['hash-algorithm'];
+				unset($phase1['hash-algorithm']);
+			}
+			if (isset($phase1['dhgroup']) && !empty($phase1['dhgroup'])) {
+				$item['dhgroup'] = $phase1['dhgroup'];
+				unset($phase1['dhgroup']);
+			}
+			if (!empty($item)) {
+				if (!is_array($phase1['encryption'])) {
+					$phase1['encryption'] = array();
+				}
+				if (!is_array($phase1['encryption']['item'])) {
+					$phase1['encryption']['item'] = array();
+				}
+				$phase1['encryption']['item'][] = $item;
+			}
 		}
 	}
 }
@@ -5953,6 +5967,14 @@ function upgrade_190_to_191() {
  */
 function additional_config_upgrade() {
 	global $config;
+
+	if (!empty($config['system']['language'])) {
+		if ($config['system']['language'] == 'zh_HK') {
+			$config['system']['language'] = 'zh_Hans_HK';
+		} elseif ($config['system']['language'] == 'zh_TW') {
+			$config['system']['language'] = 'zh_Hant_TW';
+		}
+	}
 }
 
 ?>

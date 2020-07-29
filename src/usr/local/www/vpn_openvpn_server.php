@@ -3,7 +3,7 @@
  * vpn_openvpn_server.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2008 Shrew Soft Inc.
  * All rights reserved.
  *
@@ -96,7 +96,7 @@ if ($act == "new") {
 	$pconfig['ncp-ciphers'] = "AES-128-GCM";
 	$pconfig['autokey_enable'] = "yes";
 	$pconfig['tlsauth_enable'] = "yes";
-	$pconfig['tlsauth_keydir'] = "";
+	$pconfig['tlsauth_keydir'] = "default";
 	$pconfig['autotls_enable'] = "yes";
 	$pconfig['dh_length'] = 2048;
 	$pconfig['dev_mode'] = "tun";
@@ -250,6 +250,7 @@ if (($act == "edit") || ($act == "dup")) {
 		}
 
 		$pconfig['push_blockoutsidedns'] = $a_server[$id]['push_blockoutsidedns'];
+		$pconfig['username_as_common_name']  = ($a_server[$id]['username_as_common_name'] != 'disabled');
 		$pconfig['udp_fast_io'] = $a_server[$id]['udp_fast_io'];
 		$pconfig['exit_notify'] = $a_server[$id]['exit_notify'];
 		$pconfig['sndrcvbuf'] = $a_server[$id]['sndrcvbuf'];
@@ -651,6 +652,9 @@ if ($_POST['save']) {
 		if ($pconfig['push_blockoutsidedns']) {
 			$server['push_blockoutsidedns'] = $pconfig['push_blockoutsidedns'];
 		}
+
+		$server['username_as_common_name'] = ($pconfig['username_as_common_name'] == 'yes') ? "enabled" : "disabled";
+
 		if ($pconfig['udp_fast_io']) {
 			$server['udp_fast_io'] = $pconfig['udp_fast_io'];
 		}
@@ -886,12 +890,15 @@ if ($act=="new" || $act=="edit"):
 		    'Encryption and Authentication mode also encrypts control channel communication, providing more privacy and traffic control channel obfuscation.',
 			'<br/>');
 
+	if (strlen($pconfig['tlsauth_keydir']) == 0) {
+		$pconfig['tlsauth_keydir'] = "default";
+	}
 	$section->addInput(new Form_Select(
 		'tlsauth_keydir',
 		'*TLS keydir direction',
 		$pconfig['tlsauth_keydir'],
 		openvpn_get_keydirlist()
-        ))->setHelp('The TLS Key Direction must be set to complementary values on the client and server. ' .
+	))->setHelp('The TLS Key Direction must be set to complementary values on the client and server. ' .
 			'For example, if the server is set to 0, the client must be set to 1. ' .
 			'Both may be set to omit the direction, in which case the TLS Key will be used bidirectionally.');
 
@@ -935,7 +942,7 @@ if ($act=="new" || $act=="edit"):
 			$thiscert = lookup_cert($pconfig['certref']);
 			$purpose = cert_get_purpose($thiscert['crt'], true);
 			if ($purpose['server'] != "Yes") {
-				$certhelp = '<span id="certtype" class="text-danger">' . gettext("Warning: The selected server certificate was not created as an SSL Server certificate and may not work as expected") . ' </span>';
+				$certhelp = '<span id="certtype" class="text-danger">' . gettext("Warning: The selected server certificate was not created as an SSL/TLS Server certificate and may not work as expected") . ' </span>';
 			}
 		}
 	} else {
@@ -965,7 +972,7 @@ if ($act=="new" || $act=="edit"):
 		        '<br/>' .
 		        gettext('Generating new or stronger DH parameters is CPU-intensive and must be performed manually.') . ' ' .
 		        sprintf(gettext('Consult %1$sthe doc wiki article on DH Parameters%2$sfor information on generating new or stronger parameter sets.'),
-					'<a href="https://doc.pfsense.org/index.php/DH_Parameters">',
+					'<a href="https://docs.netgate.com/pfsense/en/latest/book/openvpn/openvpn-configuration-options.html#dh-parameters-length">',
 					'</a> '),
 				'info', false),
 		    '</div>');
@@ -1499,6 +1506,14 @@ if ($act=="new" || $act=="edit"):
 				'EXAMPLE: push "route 10.0.0.0 255.255.255.0"', '<br />');
 
 	$section->addInput(new Form_Checkbox(
+		'username_as_common_name',
+		'Username as Common Name',
+		'Use the authenticated client username instead of the certificate common name (CN).',
+		$pconfig['username_as_common_name']
+	))->setHelp('When a user authenticates, if this option is enabled then the username of the client will be used ' .
+			'in place of the certificate common name for purposes such as determining Client Specific Overrides.');
+
+	$section->addInput(new Form_Checkbox(
 		'udp_fast_io',
 		'UDP Fast I/O',
 		'Use fast I/O operations with UDP writes to tun/tap. Experimental.',
@@ -1752,6 +1767,7 @@ events.push(function() {
 				hideMultiClass('authmode', true);
 				hideCheckbox('client2client', true);
 				hideCheckbox('autokey_enable', false);
+				hideCheckbox('username_as_common_name', true);
 			break;
 			case "p2p_tls":
 				advanced_change(true, value);
@@ -1763,6 +1779,7 @@ events.push(function() {
 				hideInput('local_networkv6', false);
 				hideMultiClass('authmode', true);
 				hideCheckbox('client2client', false);
+				hideCheckbox('username_as_common_name', true);
 			break;
 			case "server_user":
 			case "server_tls_user":
@@ -1776,6 +1793,7 @@ events.push(function() {
 				hideMultiClass('authmode', false);
 				hideCheckbox('client2client', false);
 				hideCheckbox('autokey_enable', true);
+				hideCheckbox('username_as_common_name', false);
 			break;
 			case "server_tls":
 				hideMultiClass('authmode', true);
@@ -1791,6 +1809,7 @@ events.push(function() {
 				hideInput('local_network', false);
 				hideInput('local_networkv6', false);
 				hideCheckbox('client2client', false);
+				hideCheckbox('username_as_common_name', true);
 			break;
 		}
 
@@ -2067,7 +2086,7 @@ events.push(function() {
 		var errmsg = "";
 
 		if ($(this).find(":selected").index() >= "<?=$servercerts?>") {
-			var errmsg = '<span class="text-danger">' + "<?=gettext('Warning: The selected server certificate was not created as an SSL Server certificate and may not work as expected')?>" + '</span>';
+			var errmsg = '<span class="text-danger">' + "<?=gettext('Warning: The selected server certificate was not created as an SSL/TLS Server certificate and may not work as expected')?>" + '</span>';
 		}
 
 		$('#certtype').html(errmsg);

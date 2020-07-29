@@ -4,7 +4,7 @@
  *
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2015 Warren Baker <warren@percol8.co.za>
- * Copyright (c) 2015-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2015-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally part of m0n0wall (http://m0n0.ch/wall)
@@ -29,6 +29,8 @@ require_once("config.inc");
 require_once("functions.inc");
 require_once("filter.inc");
 require_once("shaper.inc");
+require_once("interfaces.inc");
+require_once("util.inc");
 
 function create_unbound_chroot_path($cfgsubdir = "") {
 	global $config, $g;
@@ -115,6 +117,17 @@ function test_unbound_config($unboundcfg, &$output) {
 	unbound_remote_control_setup($cfgsubdir);
 	do_as_unbound_user("unbound-anchor", $cfgsubdir);
 
+	// Copy the Python files to the test folder
+	if (isset($unboundcfg['python']) && !empty($unboundcfg['python_script'])) {
+		$python_files = glob("{$g['unbound_chroot_path']}/{$unboundcfg['python_script']}.*");
+		if (is_array($python_files)) {
+			foreach ($python_files as $file) {
+				$file = pathinfo($file, PATHINFO_BASENAME);
+				@copy("{$g['unbound_chroot_path']}/{$file}", "{$cfgdir}/{$file}");
+			}
+		}
+	}
+
 	$rv = 0;
 	exec("/usr/local/sbin/unbound-checkconf {$cfgdir}/unbound.conf 2>&1",
 	    $output, $rv);
@@ -156,13 +169,25 @@ function unbound_generate_config_text($unboundcfg = NULL, $cfgsubdir = "") {
 	// Setup optimization
 	$optimization = unbound_optimization();
 
+	$module_config = '';
+
+	// Setup Python module (pre validator)
+	if (isset($unboundcfg['python']) && !empty($unboundcfg['python_script']) && $unboundcfg['python_order'] == 'pre_validator') {
+		$module_config .= 'python ';
+	}
+
 	// Setup DNSSEC support
 	if (isset($unboundcfg['dnssec'])) {
-		$module_config = "validator iterator";
+		$module_config .= 'validator ';
 		$anchor_file = "auto-trust-anchor-file: {$g['unbound_chroot_path']}{$cfgsubdir}/root.key";
-	} else {
-		$module_config = "iterator";
 	}
+
+	// Setup Python module (post validator)
+	if (isset($unboundcfg['python']) && !empty($unboundcfg['python_script']) && $unboundcfg['python_order'] == 'post_validator') {
+		$module_config .= 'python ';
+	}
+
+	$module_config .= 'iterator';
 
 	// Setup DNS Rebinding
 	if (!isset($config['system']['webgui']['nodnsrebindcheck'])) {
@@ -222,7 +247,7 @@ EOF;
 		$tlscert_path = "{$g['unbound_chroot_path']}/sslcert.crt";
 		$tlskey_path = "{$g['unbound_chroot_path']}/sslcert.key";
 
-		// Enable SSL on the chosen or default port
+		// Enable SSL/TLS on the chosen or default port
 		$tlsconfig .= "tls-port: {$tlsport}\n";
 
 		// Lookup CA and Server Cert
@@ -293,7 +318,11 @@ EOF;
 	$dns_record_cache = isset($unboundcfg['dnsrecordcache']) ? "yes" : "no";
 	$outgoing_num_tcp = isset($unboundcfg['outgoing_num_tcp']) ? $unboundcfg['outgoing_num_tcp'] : "10";
 	$incoming_num_tcp = isset($unboundcfg['incoming_num_tcp']) ? $unboundcfg['incoming_num_tcp'] : "10";
-	$edns_buffer_size = (!empty($unboundcfg['edns_buffer_size'])) ? $unboundcfg['edns_buffer_size'] : "4096";
+	if (empty($unboundcfg['edns_buffer_size']) || ($unboundcfg['edns_buffer_size'] == 'auto')) {
+		$edns_buffer_size = unbound_auto_ednsbufsize();
+	} else {
+		$edns_buffer_size = $unboundcfg['edns_buffer_size'];
+	}
 	$num_queries_per_thread = (!empty($unboundcfg['num_queries_per_thread'])) ? $unboundcfg['num_queries_per_thread'] : "4096";
 	$jostle_timeout = (!empty($unboundcfg['jostle_timeout'])) ? $unboundcfg['jostle_timeout'] : "200";
 	$cache_max_ttl = (!empty($unboundcfg['cache_max_ttl'])) ? $unboundcfg['cache_max_ttl'] : "86400";
@@ -392,6 +421,15 @@ EOD;
 		}
 	}
 
+	$python_module = '';
+	if (isset($unboundcfg['python']) && !empty($unboundcfg['python_script'])) {
+		$python_path = '';
+		if (!empty($cfgsubdir)) {
+			$python_path = "{$g['unbound_chroot_path']}{$cfgsubdir}/";
+		}
+		$python_module = "\n# Python Module\npython:\npython-script: {$python_path}{$unboundcfg['python_script']}.py";
+	}
+
 	$unboundconf = <<<EOD
 ##########################
 # Unbound Configuration
@@ -476,6 +514,7 @@ include: {$g['unbound_chroot_path']}{$cfgsubdir}/domainoverrides.conf
 # Remote Control Config
 ###
 include: {$g['unbound_chroot_path']}{$cfgsubdir}/remotecontrol.conf
+{$python_module}
 
 EOD;
 
@@ -856,6 +895,23 @@ function unbound_acls_config($cfgsubdir = "") {
 			}
 		}
 
+		// OpenVPN IPv6 Tunnel Networks
+		foreach (array('openvpn-client', 'openvpn-server') as $ovpnentry) {
+			if (is_array($config['openvpn'][$ovpnentry])) {
+				foreach ($config['openvpn'][$ovpnentry] as $ovpnent) {
+					if (!isset($ovpnent['disable']) && !empty($ovpnent['tunnel_networkv6'])) {
+						$aclcfg .= "access-control: {$ovpnent['tunnel_networkv6']} allow\n";
+					}
+				}
+			}
+		}
+		// IPsec Mobile Virtual IPv6 Address Pool
+		if ((isset($config['ipsec']['client']['enable'])) &&
+		    (!empty($config['ipsec']['client']['pool_address_v6'])) &&
+		    (!empty($config['ipsec']['client']['pool_netbits_v6']))) {
+			$aclcfg .= "access-control: {$config['ipsec']['client']['pool_address_v6']}/{$config['ipsec']['client']['pool_netbits_v6']} allow\n";
+		}
+
 		// Generate IPv4 access-control entries using the same logic as automatic outbound NAT
 		if (empty($FilterIflist)) {
 			filter_generate_optcfg_array();
@@ -911,6 +967,40 @@ function unbound_local_zone_types() {
 		"inform_deny" => gettext("Inform Deny"),
 		"nodefault" => gettext("No Default")
 	);
+}
+
+// Autoconfig EDNS buffer size
+function unbound_auto_ednsbufsize() {
+	global $config;
+
+	$active_ipv6_inf = false;
+	if ($config['unbound']['active_interface'] != 'all') {
+		$active_interfaces = explode(",", $config['unbound']['active_interface']);
+	} else {
+		$active_interfaces = get_configured_interface_list();
+	}
+
+	$min_mtu = get_interface_mtu(get_real_interface($active_interfaces[0]));
+	foreach ($active_interfaces as $ubif) {
+		$ubif_mtu = get_interface_mtu(get_real_interface($ubif));
+		if (get_interface_ipv6($ubif)) {
+			$active_ipv6_inf = true;
+		}
+		if ($ubif_mtu < $min_mtu) {
+			$min_mtu = $ubif_mtu;
+		}
+	}
+
+	// maximum IPv4 + UDP header = 68 bytes
+	$min_mtu = $min_mtu - 68;
+
+	if (($min_mtu < 1232) && $active_ipv6_inf) {
+		$min_mtu = 1232;
+	} elseif ($min_mtu < 512) {
+		$min_mtu = 512;
+	}	
+
+	return $min_mtu;
 }
 
 ?>

@@ -3,7 +3,7 @@
  * system_advanced_misc.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2008 Shrew Soft Inc
  * All rights reserved.
  *
@@ -52,6 +52,8 @@ $mds_modes = array(
 	3 => gettext('Automatic VERW or Software selection'),
 );
 
+$available_kernel_memory = get_single_sysctl("vm.kmem_map_free");
+
 $pconfig['proxyurl'] = $config['system']['proxyurl'];
 $pconfig['proxyport'] = $config['system']['proxyport'];
 $pconfig['proxyuser'] = $config['system']['proxyuser'];
@@ -74,6 +76,14 @@ $pconfig['do_not_send_uniqueid'] = isset($config['system']['do_not_send_uniqueid
 
 $use_mfs_tmpvar_before = isset($config['system']['use_mfs_tmpvar']) ? true : false;
 $use_mfs_tmpvar_after = $use_mfs_tmpvar_before;
+
+/* Adjust available kernel memory to account for existing RAM disks
+ * https://redmine.pfsense.org/issues/10420 */
+if ($use_mfs_tmpvar_before) {
+	/* Get current RAM disk sizes */
+	$current_ram_disk_size = (int) trim(exec("/bin/df -k /tmp /var | /usr/bin/awk '/\/dev\/md/ {sum += \$2 * 1024} END {print sum}'"));
+	$available_kernel_memory += $current_ram_disk_size;
+}
 
 $pconfig['powerd_ac_mode'] = "hadp";
 if (!empty($config['system']['powerd_ac_mode'])) {
@@ -121,6 +131,11 @@ if ($_POST) {
 
 	if (!empty($_POST['use_mfs_var_size']) && (!is_numeric($_POST['use_mfs_var_size']) || ($_POST['use_mfs_var_size'] < 60))) {
 		$input_errors[] = gettext("/var Size must be numeric and should not be less than 60MiB.");
+	}
+
+	if (is_numericint($_POST['use_mfs_tmp_size']) && is_numericint($_POST['use_mfs_var_size']) &&
+	    ((($_POST['use_mfs_tmp_size'] + $_POST['use_mfs_var_size']) * 1024 * 1024) > $available_kernel_memory)) {
+		$input_errors[] = gettext("Combined size of /tmp and /var RAM disks would exceed available kernel memory.");
 	}
 
 	if (!empty($_POST['proxyport']) && !is_port($_POST['proxyport'])) {
@@ -589,7 +604,10 @@ $group->add(new Form_Input(
 	['placeholder' => 60]
 ))->setHelp('/var RAM Disk<br />Do not set lower than 60.');
 
-$group->setHelp('Sets the size, in MiB, for the RAM disks.');
+$group->setHelp('Sets the size, in MiB, for the RAM disks. ' .
+	'Ensure each RAM disk is large enough to contain the current contents of the directories in question. %s' .
+	'Maximum total size of all RAM disks cannot exceed available kernel memory: %s',
+	'<br/>', format_bytes( $available_kernel_memory ));
 
 $section->add($group);
 
@@ -656,7 +674,8 @@ $form->add($section);
 print $form;
 
 $ramdisk_msg = gettext('The \"Use Ramdisk\" setting has been changed. This requires the firewall\nto reboot.\n\nReboot now ?');
-$use_mfs_tmpvar_changed = (($use_mfs_tmpvar_before !== $use_mfs_tmpvar_after) && !$input_errors);
+$use_mfs_tmpvar_changed = ((($use_mfs_tmpvar_before !== $use_mfs_tmpvar_after) ||
+			    (!empty($_POST) && $use_mfs_tmpvar_after && file_exists('/conf/ram_disks_failed'))) && !$input_errors);
 ?>
 
 <script type="text/javascript">

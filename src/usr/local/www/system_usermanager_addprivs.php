@@ -3,7 +3,7 @@
  * system_usermanager_addprivs.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2006 Daniel S. Haischt.
  * All rights reserved.
  *
@@ -155,7 +155,7 @@ $section = new Form_Section('User Privileges');
 
 $name_string = $a_user['name'];
 if (!empty($a_user['descr'])) {
-	$name_string .= " ({$a_user['descr']})";
+	$name_string .= " (" . htmlspecialchars($a_user['descr']) . ")";
 }
 
 $section->addInput(new Form_StaticText(

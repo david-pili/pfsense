@@ -3,7 +3,7 @@
  * services_captiveportal.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -67,15 +67,7 @@ if ($_REQUEST['act'] == "viewhtml") {
 	}
 	exit;
 } else if ($_REQUEST['act'] == "gethtmlhtml" && $a_cp[$cpzone] && $a_cp[$cpzone]['page']['htmltext']) {
-	$file_data = base64_decode($a_cp[$cpzone]['page']['htmltext']);
-	$file_size = strlen($file_data);
-
-	header("Content-Type: text/html");
-	header("Content-Disposition: attachment; filename=portal.html");
-	header("Content-Length: $file_size");
-	echo $file_data;
-
-	exit;
+	send_user_download('data', base64_decode($a_cp[$cpzone]['page']['htmltext']), "portal.html", "text/html");
 } else if ($_REQUEST['act'] == "delhtmlhtml" && $a_cp[$cpzone] && $a_cp[$cpzone]['page']['htmltext']) {
 	unset($a_cp[$cpzone]['page']['htmltext']);
 	write_config(sprintf(gettext("Captive Portal: zone %s: Restore default portal page"), $cpzone));
@@ -87,15 +79,7 @@ if ($_REQUEST['act'] == "viewhtml") {
 	}
 	exit;
 } else if ($_REQUEST['act'] == "geterrhtml" && $a_cp[$cpzone] && $a_cp[$cpzone]['page']['errtext']) {
-	$file_data = base64_decode($a_cp[$cpzone]['page']['errtext']);
-	$file_size = strlen($file_data);
-
-	header("Content-Type: text/html");
-	header("Content-Disposition: attachment; filename=err.html");
-	header("Content-Length: $file_size");
-	echo $file_data;
-
-	exit;
+	send_user_download('data', base64_decode($a_cp[$cpzone]['page']['errtext']), "err.html", "text/html");
 } else if ($_REQUEST['act'] == "delerrhtml" && $a_cp[$cpzone] && $a_cp[$cpzone]['page']['errtext']) {
 	unset($a_cp[$cpzone]['page']['errtext']);
 	write_config(sprintf(gettext("Captive Portal: zone %s: Restore default error page"), $cpzone));
@@ -107,15 +91,7 @@ if ($_REQUEST['act'] == "viewhtml") {
 	}
 	exit;
 } else if ($_REQUEST['act'] == "getlogouthtml" && $a_cp[$cpzone] && $a_cp[$cpzone]['page']['logouttext']) {
-	$file_data = base64_decode($a_cp[$cpzone]['page']['logouttext']);
-	$file_size = strlen($file_data);
-
-	header("Content-Type: text/html");
-	header("Content-Disposition: attachment; filename=logout.html");
-	header("Content-Length: $file_size");
-	echo $file_data;
-
-	exit;
+	send_user_download('data', base64_decode($a_cp[$cpzone]['page']['logouttext']), "logout.html", "text/html");
 } else if ($_REQUEST['act'] == "dellogouthtml" && $a_cp[$cpzone] && $a_cp[$cpzone]['page']['logouttext']) {
 	unset($a_cp[$cpzone]['page']['logouttext']);
 	write_config(sprintf(gettext("Captive Portal: zone %s: Restore default logout page"), $cpzone));
@@ -325,7 +301,7 @@ if ($_POST['save']) {
 			$newcp['zoneid'] = 2;
 			foreach ($a_cp as $keycpzone => $cp) {
 				if ($cp['zoneid'] == $newcp['zoneid'] && $keycpzone != $cpzone) {
-					$newcp['zoneid'] += 2; /* Reserve space for SSL config if needed */
+					$newcp['zoneid'] += 2; /* Reserve space for SSL/TLS config if needed */
 				}
 			}
 
@@ -1117,7 +1093,7 @@ $section->addInput(new Form_Input(
 
 $section->addInput(new Form_Select(
 	'certref',
-	'*SSL Certificate',
+	'*SSL/TLS Certificate',
 	$pconfig['certref'],
 	build_cert_list()
 ))->setHelp('If no certificates are defined, one may be defined here: %1$sSystem &gt; Cert. Manager%2$s', '<a href="system_certmanager.php">', '</a>');
@@ -1127,7 +1103,7 @@ $section->addInput(new Form_Checkbox(
 	'HTTPS Forwards',
 	'Disable HTTPS Forwards',
 	$pconfig['nohttpsforwards']
-))->setHelp('If this option is set, attempts to connect to SSL/HTTPS (Port 443) sites will not be forwarded to the captive portal. ' .
+))->setHelp('If this option is set, attempts to connect to HTTPS (SSL/TLS on port 443) sites will not be forwarded to the captive portal. ' .
 			'This prevents certificate errors from being presented to the user even if HTTPS logins are enabled. ' .
 			'Users must attempt a connection to an HTTP (Port 80) site to get forwarded to the captive portal. ' .
 			'If HTTPS logins are enabled, the user will be redirected to the HTTPS login page.');

@@ -3,7 +3,7 @@
  * status.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://neon1.net/m0n0wall)
@@ -64,34 +64,22 @@ $filtered_tags = array(
 	'barnyard_dbpwd', 'bcrypt-hash', 'cert_key', 'crypto_password',
 	'crypto_password2', 'dns_nsupdatensupdate_key', 'encryption_password',
 	'etpro_code', 'etprocode', 'gold_encryption_password', 'gold_password',
-	'influx_pass', 'ipsecpsk', 'ldap_bindpw', 'lighttpd_ls_password',
-	'lighttpd_ls_password', 'md5-hash', 'md5password', 'md5sigkey',
-	'md5sigpass', 'nt-hash', 'oinkcode', 'oinkmastercode', 'passphrase',
-	'password', 'passwordagain', 'postgresqlpasswordenc', 'pre-shared-key',
+	'influx_pass', 'ipsecpsk', 'ldap_bindpw', 'ldapbindpass', 'ldap_pass',
+	'lighttpd_ls_password',	'md5-hash', 'md5password', 'md5sigkey',	'md5sigpass', 
+	'nt-hash', 'oinkcode', 'oinkmastercode', 'passphrase', 'password', 
+	'passwordagain', 'pkcs11pin', 'postgresqlpasswordenc', 'pre-shared-key',
 	'proxypass', 'proxy_passwd', 'proxyuser', 'proxy_user', 'prv',
 	'radius_secret', 'redis_password', 'redis_passwordagain', 'rocommunity',
 	'secret', 'shared_key', 'tls', 'tlspskidentity', 'tlspskfile',
-	'varclientpasswordinput', 'varclientsharedsecret', 'varsyncpassword',
-	'varusersmotpinitsecret', 'varusersmotppin'
+	'varclientpasswordinput', 'varclientsharedsecret', 'varsqlconfpassword',
+	'varsqlconf2password', 'varsyncpassword', 'varmodulesldappassword', 
+	'varmodulesldap2password', 'varusersmotpinitsecret', 'varusersmotppin', 
+	'varuserspassword'
 );
 
 if ($_POST['submit'] == "DOWNLOAD" && file_exists($output_file)) {
 	session_cache_limiter('public');
-	$fd = fopen($output_file, "rb");
-	header("Content-Type: application/octet-stream");
-	header("Content-Length: " . filesize($output_file));
-	header("Content-Disposition: attachment; filename=\"" .
-		trim(htmlentities(basename($output_file))) . "\"");
-	if (isset($_SERVER['HTTPS'])) {
-		header('Pragma: ');
-		header('Cache-Control: ');
-	} else {
-		header("Pragma: private");
-		header("Cache-Control: private, must-revalidate");
-	}
-
-	fpassthru($fd);
-	exit;
+	send_user_download('file', $output_file);
 }
 
 if (is_dir($output_path)) {
@@ -294,6 +282,7 @@ defCmdT("Network-Listen Queues", "/usr/bin/netstat -LaAn");
 defCmdT("Network-Sockets", "/usr/bin/sockstat");
 defCmdT("Network-ARP Table", "/usr/sbin/arp -an");
 defCmdT("Network-NDP Table", "/usr/sbin/ndp -na");
+defCmdT("OS-Kernel Modules", "/sbin/kldstat -v");
 defCmdT("OS-Kernel VMStat", "/usr/bin/vmstat -afimsz");
 
 /* If a device has a switch, put the switch configuration in the status output */
@@ -345,6 +334,9 @@ defCmdT("IPsec-SAD", "/sbin/setkey -D");
 if (file_exists("/cf/conf/upgrade_log.txt")) {
 	defCmdT("OS-Upgrade Log", "/bin/cat /cf/conf/upgrade_log.txt");
 }
+if (file_exists("/cf/conf/upgrade_log.latest.txt")) {
+	defCmdT("OS-Upgrade Log Latest", "/bin/cat /cf/conf/upgrade_log.latest.txt");
+}
 if (file_exists("/boot/loader.conf")) {
 	defCmdT("OS-Boot Loader Configuration", "/bin/cat /boot/loader.conf");
 }
@@ -353,6 +345,16 @@ if (file_exists("/boot/loader.conf.local")) {
 }
 if (file_exists("/var/etc/filterdns.conf")) {
 	defCmdT("DNS-filterdns Daemon Configuration", "/bin/cat /var/etc/filterdns.conf");
+}
+
+if (is_dir("/var/etc/openvpn")) {
+	foreach(glob('/var/etc/openvpn/*.conf') as $file) {
+		$ovpnfile = explode('/', $file);
+		if (!count($ovpnfile) || (count($ovpnfile) < 5)) {
+			continue;
+		}
+		defCmdT("OpenVPN-Configuration {$ovpnfile[4]}", "/bin/cat " . escapeshellarg($file));
+	}
 }
 
 /* Logs */
@@ -381,8 +383,8 @@ defCmdT("OS-Message Buffer (Boot)", "/bin/cat /var/log/dmesg.boot");
 defCmdT("OS-sysctl values", "/sbin/sysctl -aq");
 defCmdT("OS-Kernel Environment", "/bin/kenv");
 defCmdT("OS-Kernel Memory Usage", "/usr/local/sbin/kmemusage.sh");
-defCmdT("OS-Installed Packages", "/usr/sbin/pkg info");
-defCmdT("OS-Package Manager Configuration", "/usr/sbin/pkg -vv");
+defCmdT("OS-Installed Packages", "/usr/local/sbin/pkg-static info");
+defCmdT("OS-Package Manager Configuration", "/usr/local/sbin/pkg-static -vv");
 defCmdT("Hardware-PCI Devices", "/usr/sbin/pciconf -lvb");
 defCmdT("Hardware-USB Devices", "/usr/sbin/usbconfig dump_device_desc");
 

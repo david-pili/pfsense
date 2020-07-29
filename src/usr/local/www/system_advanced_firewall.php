@@ -3,7 +3,7 @@
  * system_advanced_firewall.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2008 Shrew Soft Inc
  * All rights reserved.
  *
@@ -35,6 +35,7 @@ require_once("guiconfig.inc");
 require_once("functions.inc");
 require_once("filter.inc");
 require_once("shaper.inc");
+require_once("pfsense-utils.inc");
 
 $pconfig['disablefilter'] = $config['system']['disablefilter'];
 $pconfig['scrubnodf'] = $config['system']['scrubnodf'];
@@ -47,9 +48,11 @@ $pconfig['aliasesresolveinterval'] = $config['system']['aliasesresolveinterval']
 $old_aliasesresolveinterval = $config['system']['aliasesresolveinterval'];
 $pconfig['checkaliasesurlcert'] = isset($config['system']['checkaliasesurlcert']);
 $pconfig['maximumtableentries'] = $config['system']['maximumtableentries'];
+$old_maximumtableentries = $config['system']['maximumtableentries'];
 $pconfig['maximumfrags'] = $config['system']['maximumfrags'];
 $pconfig['disablereplyto'] = isset($config['system']['disablereplyto']);
 $pconfig['disablenegate'] = isset($config['system']['disablenegate']);
+$pconfig['no_apipa_block'] = isset($config['system']['no_apipa_block']);
 $pconfig['bogonsinterval'] = $config['system']['bogons']['interval'];
 $pconfig['disablenatreflection'] = $config['system']['disablenatreflection'];
 $pconfig['enablebinatreflection'] = $config['system']['enablebinatreflection'];
@@ -72,6 +75,11 @@ $pconfig['icmperrortimeout'] = $config['system']['icmperrortimeout'];
 $pconfig['otherfirsttimeout'] = $config['system']['otherfirsttimeout'];
 $pconfig['othersingletimeout'] = $config['system']['othersingletimeout'];
 $pconfig['othermultipletimeout'] = $config['system']['othermultipletimeout'];
+
+$show_reboot_msg = false;
+$reboot_msg = gettext('The \"Firewall Maximum Table Entries\" setting has ' .
+    'been changed to a value bigger than system can support without a ' .
+    'reboot.\n\nReboot now ?');
 
 if ($_POST) {
 
@@ -320,13 +328,19 @@ if ($_POST) {
 			unset($config['system']['disablenegate']);
 		}
 
+		if ($_POST['no_apipa_block'] == "yes") {
+			$config['system']['no_apipa_block'] = "enabled";
+		} else {
+			unset($config['system']['no_apipa_block']);
+		}
+
 		if ($_POST['enablenatreflectionhelper'] == "yes") {
 			$config['system']['enablenatreflectionhelper'] = "yes";
 		} else {
 			unset($config['system']['enablenatreflectionhelper']);
 		}
 
-		$config['system']['reflectiontimeout'] = $_POST['reflection-timeout'];
+		$config['system']['reflectiontimeout'] = $_POST['reflectiontimeout'];
 
 		if ($_POST['bypassstaticroutes'] == "yes") {
 			$config['filter']['bypassstaticroutes'] = $_POST['bypassstaticroutes'];
@@ -368,6 +382,20 @@ if ($_POST) {
 		if (($old_aliasesresolveinterval != $config['system']['aliasesresolveinterval']) &&
 		    isvalidpid("{$g['varrun_path']}/filterdns.pid")) {
 			killbypid("{$g['varrun_path']}/filterdns.pid");
+		}
+
+		/* Update loader.conf when necessary */
+		if ($old_maximumtableentries !=
+		    $config['system']['maximumtableentries']) {
+			setup_loader_settings();
+			$cur_maximumtableentries = get_single_sysctl(
+			    'net.pf.request_maxcount');
+
+
+			if ($config['system']['maximumtableentries'] >
+			    $cur_maximumtableentries) {
+				$show_reboot_msg = true;
+			}
 		}
 
 		$changes_applied = true;
@@ -545,6 +573,13 @@ $section->addInput(new Form_Checkbox(
 ))->setHelp('With Multi-WAN it is generally desired to ensure traffic reaches directly '.
 	'connected networks and VPN networks when using policy routing. This can be disabled '.
 	'for special purposes but it requires manually creating rules for these networks.');
+
+$section->addInput(new Form_Checkbox(
+	'no_apipa_block',
+	'Allow APIPA',
+	'Allow APIPA traffic',
+	$pconfig['no_apipa_block']
+))->setHelp('Normally this traffic is dropped by the firewall, as APIPA traffic cannot be routed, but some providers may utilize APIPA space for interconnect interfaces.');
 
 $section->addInput(new Form_Input(
 	'aliasesresolveinterval',
@@ -740,6 +775,10 @@ events.push(function() {
 	// ---------- On initial page load ------------------------------------------------------------
 
 	setOptText($('#optimization').val())
+
+	if (<?=(int)$show_reboot_msg?> && confirm("<?=$reboot_msg?>")) {
+		postSubmit({override : 'yes'}, 'diag_reboot.php')
+	}
 });
 //]]>
 </script>

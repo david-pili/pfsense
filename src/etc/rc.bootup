@@ -6,7 +6,7 @@
  * originally based on m0n0wall (http://m0n0.ch/wall)
  * Copyright (c) 2003-2004 Manuel Kasper <mk@neon1.net>.
  * Copyright (c) 2009 Erik Kristensen
- * Copyright (c) 2005-2019 Rubicon Communications, LLC (Netgate). All rights reserved.
+ * Copyright (c) 2005-2020 Rubicon Communications, LLC (Netgate). All rights reserved.
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -351,6 +351,11 @@ if ($physmem < $g['minimum_ram_warning']) {
 		"net.inet.tcp.recvspace" => "4096",
 		"net.inet.tcp.sendspace" => "4096"
 	));
+}
+
+if (file_exists("/conf/ram_disks_failed")) {
+	require_once("/etc/inc/notices.inc");
+	file_notice("RAM Disks", "RAM disk creation failed. Reverted to traditional storage. Check RAM disk sizes.", "RAM Disks");
 }
 
 /* if we are operating at 1000 then increase timeouts.

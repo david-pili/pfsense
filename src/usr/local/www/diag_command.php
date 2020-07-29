@@ -3,7 +3,7 @@
  * diag_command.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Exec+ v1.02-000 - Copyright 2001-2003, All rights reserved
@@ -41,21 +41,7 @@ require_once("guiconfig.inc");
 
 if ($_POST['submit'] == "DOWNLOAD" && file_exists($_POST['dlPath'])) {
 	session_cache_limiter('public');
-	$fd = fopen($_POST['dlPath'], "rb");
-	header("Content-Type: application/octet-stream");
-	header("Content-Length: " . filesize($_POST['dlPath']));
-	header("Content-Disposition: attachment; filename=\"" .
-		trim(htmlentities(basename($_POST['dlPath']))) . "\"");
-	if (isset($_SERVER['HTTPS'])) {
-		header('Pragma: ');
-		header('Cache-Control: ');
-	} else {
-		header("Pragma: private");
-		header("Cache-Control: private, must-revalidate");
-	}
-
-	fpassthru($fd);
-	exit;
+	send_user_download('file', $_POST['dlPath']);
 } else if ($_POST['submit'] == "UPLOAD" && is_uploaded_file($_FILES['ulfile']['tmp_name'])) {
 	move_uploaded_file($_FILES['ulfile']['tmp_name'], $g["tmp_path"] . "/" . $_FILES['ulfile']['name']);
 	$ulmsg = sprintf(gettext('Uploaded file to %s.'), $g["tmp_path"] . "/" . htmlentities($_FILES['ulfile']['name']));

@@ -3,7 +3,7 @@
  * autoconfigbackup_backup.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2008-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2008-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,7 +39,7 @@ if ($_POST) {
 	touch("/tmp/forceacb");
 
 	if ($_REQUEST['reason']) {
-		if (write_config($_REQUEST['reason'] . " MaNuAlBaCkUp")) {
+		if (write_config($_REQUEST['reason'] . "-MaNuAlBaCkUp")) {
 			$savemsg = "Backup completed successfully.";
 		}
 	} elseif (write_config("Backup invoked via Auto Config Backup." . "-MaNuAlBaCkUp")) {
@@ -71,7 +71,7 @@ $tab_array[] = array("Restore", false, "/services_acb.php");
 $tab_array[] = array("Backup now", true, "/services_acb_backup.php");
 display_top_tabs($tab_array);
 
-$form = new Form("Backup");
+$form = new Form("Backup", $config['system']['acb']['enable'] === "yes");
 
 $section = new Form_Section('Backup Details');
 

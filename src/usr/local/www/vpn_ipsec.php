@@ -3,7 +3,7 @@
  * vpn_ipsec.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -45,6 +45,7 @@ $a_phase2 = &$config['ipsec']['phase2'];
 
 if ($_POST['apply']) {
 	$ipsec_dynamic_hosts = vpn_ipsec_configure();
+	ipsec_reload_package_hook();
 	/* reload the filter in the background */
 	$retval = 0;
 	$retval |= filter_configure();
@@ -176,7 +177,7 @@ if ($_POST['apply']) {
 		if (isset($a_phase1[$togglebtn]['disabled'])) {
 			unset($a_phase1[$togglebtn]['disabled']);
 		} else {
-			if (ipsec_vti($a_phase1[$togglebtn])) {
+			if (ipsec_vti($a_phase1[$togglebtn], false, false)) {
 				$input_errors[] = gettext("Cannot disable a Phase 1 with a child Phase 2 while the interface is assigned. Remove the interface assignment before disabling this P2.");
 			} else {
 				$a_phase1[$togglebtn]['disabled'] = true;
